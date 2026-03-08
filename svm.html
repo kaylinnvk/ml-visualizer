@@ -1,0 +1,1418 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SVM Visualizer</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)'], ['$', '$']],
+        displayMath: [['\\[', '\\]']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#121a31;
+      --text:#eef2ff;
+      --muted:#aab4d8;
+      --grid:rgba(255,255,255,.08);
+      --axis:rgba(255,255,255,.25);
+      --blue:#7dd3fc;
+      --red:#fb7185;
+      --green:#22c55e;
+      --yellow:#fbbf24;
+      --purple:#a78bfa;
+      --orange:#fb923c;
+      --shadow:rgba(0,0,0,.35);
+    }
+
+    *{box-sizing:border-box}
+
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      color:var(--text);
+      background:
+        radial-gradient(900px 500px at 12% 10%, #1b2a5e 0%, transparent 42%),
+        radial-gradient(800px 500px at 90% 0%, #31154f 0%, transparent 35%),
+        var(--bg);
+      padding:20px;
+    }
+
+    .app{
+      max-width:1280px;
+      margin:0 auto;
+      display:grid;
+      grid-template-columns: 1.25fr .75fr;
+      gap:16px;
+    }
+
+    .card{
+      background:linear-gradient(180deg, rgba(18,26,49,.96), rgba(11,16,32,.96));
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      overflow:hidden;
+      box-shadow:0 18px 50px var(--shadow);
+    }
+
+    .header{
+      padding:16px 18px 10px 18px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+
+    .title{
+      margin:0 0 6px 0;
+      font-size:22px;
+      font-weight:800;
+    }
+
+    .subtitle{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.45;
+    }
+
+    .tabs{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      padding:14px 16px 0 16px;
+    }
+
+    .tab{
+      border:1px solid rgba(255,255,255,.10);
+      background:#1a2750;
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-size:13px;
+      font-weight:700;
+      transition:.15s ease;
+    }
+
+    .tab:hover{
+      transform:translateY(-1px);
+      background:#22346d;
+    }
+
+    .tab.active{
+      background:linear-gradient(180deg, #2c4fb5, #213772);
+      box-shadow:0 0 0 1px rgba(255,255,255,.08) inset;
+    }
+
+    .main{
+      padding:14px 16px 16px 16px;
+    }
+
+    canvas{
+      width:100%;
+      display:block;
+      background:rgba(255,255,255,.02);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:16px;
+    }
+
+    .controls{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:14px;
+    }
+
+    .control{
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:14px;
+      padding:12px;
+    }
+
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:8px;
+    }
+
+    label span{
+      float:right;
+      color:var(--text);
+      font-weight:800;
+    }
+
+    input[type="range"]{
+      width:100%;
+      accent-color:#9fb0ff;
+    }
+
+    .buttons{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+
+    button{
+      border:1px solid rgba(255,255,255,.10);
+      background:#1b2a55;
+      color:var(--text);
+      padding:10px 13px;
+      border-radius:12px;
+      cursor:pointer;
+      font-size:13px;
+      font-weight:700;
+      transition:.15s ease;
+    }
+
+    button:hover{
+      background:#24366f;
+      transform:translateY(-1px);
+    }
+
+    .side{
+      padding:16px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .info-box{
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:14px;
+      padding:14px;
+    }
+
+    .info-box h3{
+      margin:0 0 8px 0;
+      font-size:16px;
+    }
+
+    .story{
+      font-size:14px;
+      line-height:1.55;
+      color:var(--text);
+    }
+
+    .formula{
+      font-size:13px;
+      line-height:1.6;
+      color:var(--text);
+      background:rgba(0,0,0,.18);
+      border:1px dashed rgba(255,255,255,.10);
+      border-radius:12px;
+      padding:12px;
+      overflow-x:auto;
+    }
+
+    .formula mjx-container{
+      margin:.4em 0 !important;
+    }
+
+    .legend{
+      display:grid;
+      gap:8px;
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    .leg{
+      display:flex;
+      align-items:center;
+      gap:9px;
+    }
+
+    .sw{
+      width:14px;
+      height:14px;
+      border-radius:5px;
+      flex:0 0 14px;
+      box-shadow:0 0 0 1px rgba(255,255,255,.10) inset;
+    }
+
+    .pill-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .pill{
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:12px;
+      padding:10px;
+    }
+
+    .pill .k{
+      font-size:11px;
+      color:var(--muted);
+      margin-bottom:4px;
+    }
+
+    .pill .v{
+      font-size:14px;
+      font-weight:800;
+    }
+
+    .mini{
+      width:100%;
+      height:220px;
+      display:block;
+      background:rgba(255,255,255,.02);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:16px;
+    }
+
+    .footer-note{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.45;
+    }
+
+    @media (max-width: 980px){
+      .app{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <div class="header">
+        <h1 class="title">Support Vector Machine Visualizer</h1>
+        <p class="subtitle">
+          See how SVM finds the separating boundary, maximizes the margin, focuses on support vectors,
+          handles soft-margin tradeoffs, and uses kernels for non-linear data.
+        </p>
+      </div>
+
+      <div class="tabs" id="tabs"></div>
+
+      <div class="main">
+        <canvas id="plot" width="820" height="520"></canvas>
+
+        <div class="controls">
+          <div class="control">
+            <label>
+              Margin / regularization strength \(C\)
+              <span id="cVal">1.00</span>
+            </label>
+            <input id="cSlider" type="range" min="0.10" max="5.00" step="0.01" value="1.00">
+          </div>
+
+          <div class="control">
+            <label>
+              Noise / overlap
+              <span id="noiseVal">0.45</span>
+            </label>
+            <input id="noiseSlider" type="range" min="0.00" max="1.20" step="0.01" value="0.45">
+          </div>
+
+          <div class="control">
+            <label>
+              Kernel strength / bend
+              <span id="kernelVal">1.20</span>
+            </label>
+            <input id="kernelSlider" type="range" min="0.20" max="3.00" step="0.01" value="1.20">
+          </div>
+
+          <div class="control">
+            <label>
+              Animation progress
+              <span id="progressVal">0.00</span>
+            </label>
+            <input id="progressSlider" type="range" min="0.00" max="1.00" step="0.01" value="0.00">
+          </div>
+        </div>
+
+        <div class="buttons">
+          <button id="regenBtn">Regenerate data</button>
+          <button id="animateBtn">Play animation</button>
+          <button id="stepBtn">Step explanation</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="side">
+        <div class="info-box">
+          <h3>Mini intuition view</h3>
+          <canvas id="miniCanvas" class="mini" width="430" height="220"></canvas>
+        </div>
+        
+        <div class="info-box">
+          <h3 id="panelTitle">What is SVM doing?</h3>
+          <div class="story" id="storyText"></div>
+        </div>
+
+        <div class="pill-grid">
+          <div class="pill">
+            <div class="k">Main goal</div>
+            <div class="v" id="goalText">Separate classes with maximum margin</div>
+          </div>
+          <div class="pill">
+            <div class="k">Key objects</div>
+            <div class="v" id="objectsText">Boundary, margins, support vectors</div>
+          </div>
+          <div class="pill">
+            <div class="k">When useful</div>
+            <div class="v" id="usefulText">Classification with clear structure</div>
+          </div>
+          <div class="pill">
+            <div class="k">Main weakness</div>
+            <div class="v" id="weakText">Kernel choices can be tricky</div>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <h3>Formula intuition</h3>
+          <div class="formula" id="formulaText"></div>
+        </div>
+
+        <div class="info-box">
+          <h3>Legend</h3>
+          <div class="legend" id="legend"></div>
+        </div>
+
+        <div class="footer-note" id="footerNote">
+          SVM cares most about the points closest to the boundary — not every point equally.
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const MODES = [
+    "max-margin",
+    "support-vectors",
+    "soft-margin",
+    "kernel-trick",
+    "circle-example"
+  ];
+
+  const MODE_INFO = {
+    "max-margin": {
+      tab: "Max Margin",
+      title: "How SVM finds the widest safe gap",
+      story: `
+        Imagine two groups of points: blue and red. Many lines can separate them.
+        SVM does <b>not</b> just ask, “Which line separates them?”
+        It asks, <b>“Which separating line leaves the biggest safety gap?”</b><br><br>
+        That safety gap is called the <b>margin</b>. A bigger margin usually means the classifier is more stable and less sensitive to small changes in the data.
+      `,
+      goal: "Maximize the margin",
+      objects: "Decision boundary + 2 margin lines",
+      useful: "Cleanly separable classes",
+      weak: "Pure hard-margin fails with overlap",
+      formula: `
+        For binary labels \\(y_i \\in \\{-1,+1\\}\\), the decision boundary is
+        \\[
+        \\mathbf{w}^\\top \\mathbf{x} + b = 0
+        \\]
+        The margin boundaries are
+        \\[
+        \\mathbf{w}^\\top \\mathbf{x} + b = +1
+        \\quad \\text{and} \\quad
+        \\mathbf{w}^\\top \\mathbf{x} + b = -1
+        \\]
+        Hard-margin SVM solves
+        \\[
+        \\min_{\\mathbf{w},b} \\frac{1}{2}\\lVert \\mathbf{w} \\rVert^2
+        \\]
+        subject to
+        \\[
+        y_i(\\mathbf{w}^\\top \\mathbf{x}_i + b) \\ge 1
+        \\]
+        Because margin width is
+        \\[
+        \\frac{2}{\\lVert \\mathbf{w} \\rVert}
+        \\]
+        minimizing \\(\\lVert \\mathbf{w} \\rVert\\) means maximizing the margin.
+      `,
+      legend: [
+        ["#7dd3fc", "Class +1 points"],
+        ["#fb7185", "Class -1 points"],
+        ["#ffffff", "Decision boundary"],
+        ["#fbbf24", "Margin lines"],
+        ["#22c55e", "Animated widening margin"]
+      ],
+      footer: "SVM chooses the boundary with the largest gap between classes."
+    },
+
+    "support-vectors": {
+      tab: "Support Vectors",
+      title: "Why only a few points matter most",
+      story: `
+        A key SVM idea is that <b>not all points matter equally</b>.
+        The most important points are the ones closest to the boundary.
+        These are the <b>support vectors</b>.<br><br>
+        Intuition: if you move a far-away point a little, the boundary barely changes.
+        But if you move a point right near the edge, the boundary can shift a lot.
+      `,
+      goal: "Use the closest points to define boundary",
+      objects: "Support vectors",
+      useful: "Sparse geometric intuition",
+      weak: "Can be sensitive to bad edge points",
+      formula: `
+        A point is especially important when it lies on or near the margin:
+        \\[
+        y_i(\\mathbf{w}^\\top \\mathbf{x}_i + b) \\approx 1
+        \\]
+        In the dual form, the classifier becomes
+        \\[
+        f(\\mathbf{x}) = \\sum_{i=1}^{n} \\alpha_i y_i \\langle \\mathbf{x}_i, \\mathbf{x} \\rangle + b
+        \\]
+        Only points with
+        \\[
+        \\alpha_i > 0
+        \\]
+        contribute to the decision rule. These are the support vectors.
+      `,
+      legend: [
+        ["#7dd3fc", "Class +1 points"],
+        ["#fb7185", "Class -1 points"],
+        ["#22c55e", "Support vectors"],
+        ["#ffffff", "Decision boundary"],
+        ["#fbbf24", "Margin"]
+      ],
+      footer: "Support vectors are the points pressing against the margin."
+    },
+
+    "soft-margin": {
+      tab: "Soft Margin",
+      title: "What happens when classes overlap?",
+      story: `
+        Real data is messy. Sometimes one red point sits inside the blue area.
+        Hard-margin SVM would fail, because perfect separation may be impossible.<br><br>
+        Soft-margin SVM allows some violations. It says:
+        <b>“I still want a wide margin, but I can tolerate a few mistakes if that gives a better overall boundary.”</b>
+      `,
+      goal: "Balance large margin and classification errors",
+      objects: "Slack variables, penalty C",
+      useful: "Noisy, overlapping real-world data",
+      weak: "Choosing C matters",
+      formula: `
+        Soft-margin SVM solves
+        \\[
+        \\min_{\\mathbf{w},b,\\boldsymbol{\\xi}}
+        \\frac{1}{2}\\lVert \\mathbf{w} \\rVert^2 + C\\sum_{i=1}^{n} \\xi_i
+        \\]
+        subject to
+        \\[
+        y_i(\\mathbf{w}^\\top \\mathbf{x}_i + b) \\ge 1 - \\xi_i,
+        \\qquad \\xi_i \\ge 0
+        \\]
+        Here:
+        \\[
+        \\xi_i
+        \\]
+        measures how much point \\(i\\) violates the margin.<br><br>
+        Large \\(C\\): punish violations more strongly.<br>
+        Small \\(C\\): allow more violations to get a wider margin.
+      `,
+      legend: [
+        ["#7dd3fc", "Class +1 points"],
+        ["#fb7185", "Class -1 points"],
+        ["#ffffff", "Decision boundary"],
+        ["#fbbf24", "Margins"],
+        ["#fb923c", "Margin violation / slack"]
+      ],
+      footer: "C controls the tradeoff between “wide margin” and “few violations.”"
+    },
+
+    "kernel-trick": {
+      tab: "Kernel Trick",
+      title: "How SVM handles curved boundaries",
+      story: `
+        Some data cannot be separated by a straight line in the original space.
+        But maybe in a smarter transformed space, it becomes separable.<br><br>
+        The kernel trick says:
+        <b>“Let’s act as if we mapped the data into a higher-dimensional space, without explicitly computing the full mapping.”</b><br><br>
+        This lets SVM create curved boundaries.
+      `,
+      goal: "Separate non-linear data",
+      objects: "Kernel, transformed similarity",
+      useful: "Curved or ring-shaped classes",
+      weak: "Kernel tuning can be hard",
+      formula: `
+        In the dual form, inner products
+        \\[
+        \\langle \\mathbf{x}_i, \\mathbf{x} \\rangle
+        \\]
+        are replaced by a kernel
+        \\[
+        K(\\mathbf{x}_i, \\mathbf{x})
+        \\]
+        so the classifier becomes
+        \\[
+        f(\\mathbf{x}) =
+        \\sum_{i=1}^{n} \\alpha_i y_i K(\\mathbf{x}_i, \\mathbf{x}) + b
+        \\]
+        A common kernel is the RBF kernel:
+        \\[
+        K(\\mathbf{x},\\mathbf{z}) =
+        \\exp\\left(-\\gamma \\lVert \\mathbf{x}-\\mathbf{z} \\rVert^2\\right)
+        \\]
+        This allows highly flexible curved boundaries.
+      `,
+      legend: [
+        ["#7dd3fc", "Class +1 points"],
+        ["#fb7185", "Class -1 points"],
+        ["rgba(125,211,252,.18)", "One side of decision region"],
+        ["rgba(251,113,133,.18)", "Other side of decision region"],
+        ["#ffffff", "Curved decision boundary"]
+      ],
+      footer: "Kernels let SVM behave non-linearly without explicitly drawing all new features."
+    },
+
+    "circle-example": {
+      tab: "Circle Example",
+      title: "A classic non-linear example",
+      story: `
+        This is the classic example where one class is in the center and the other class surrounds it.
+        A straight line can never separate them well.<br><br>
+        But if we add a feature like
+        \\(x_1^2 + x_2^2\\),
+        the pattern becomes easier to separate in a higher-dimensional view.
+        That is the geometric intuition behind kernels.
+      `,
+      goal: "See why linear boundary fails and kernel helps",
+      objects: "Ring structure, radial separation",
+      useful: "Understanding feature lifting",
+      weak: "Original 2D view hides separability",
+      formula: `
+        A useful transformed feature is
+        \\[
+        \\phi(\\mathbf{x}) = \\begin{bmatrix} x_1 \\\\ x_2 \\\\ x_1^2 + x_2^2 \\end{bmatrix}
+        \\]
+        In the transformed space, a linear separator may work:
+        \\[
+        \\mathbf{w}^\\top \\phi(\\mathbf{x}) + b = 0
+        \\]
+        In the original 2D space, that appears as a curved boundary.
+      `,
+      legend: [
+        ["#7dd3fc", "Inner class"],
+        ["#fb7185", "Outer ring class"],
+        ["#ffffff", "Curved boundary"],
+        ["#a78bfa", "Lifted feature intuition"]
+      ],
+      footer: "Linear in transformed space can look curved in original space."
+    }
+  };
+
+  const tabsEl = document.getElementById("tabs");
+  const plot = document.getElementById("plot");
+  const ctx = plot.getContext("2d");
+  const miniCanvas = document.getElementById("miniCanvas");
+  const mctx = miniCanvas.getContext("2d");
+
+  const cSlider = document.getElementById("cSlider");
+  const noiseSlider = document.getElementById("noiseSlider");
+  const kernelSlider = document.getElementById("kernelSlider");
+  const progressSlider = document.getElementById("progressSlider");
+
+  const cVal = document.getElementById("cVal");
+  const noiseVal = document.getElementById("noiseVal");
+  const kernelVal = document.getElementById("kernelVal");
+  const progressVal = document.getElementById("progressVal");
+
+  const panelTitle = document.getElementById("panelTitle");
+  const storyText = document.getElementById("storyText");
+  const goalText = document.getElementById("goalText");
+  const objectsText = document.getElementById("objectsText");
+  const usefulText = document.getElementById("usefulText");
+  const weakText = document.getElementById("weakText");
+  const formulaText = document.getElementById("formulaText");
+  const legendEl = document.getElementById("legend");
+  const footerNote = document.getElementById("footerNote");
+
+  const regenBtn = document.getElementById("regenBtn");
+  const animateBtn = document.getElementById("animateBtn");
+  const stepBtn = document.getElementById("stepBtn");
+
+  let mode = "max-margin";
+  let animTimer = null;
+  let stepState = 0;
+  let data = {};
+
+  function randn() {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  function createTabs(){
+    MODES.forEach(m=>{
+      const btn = document.createElement("button");
+      btn.className = "tab";
+      btn.dataset.mode = m;
+      btn.textContent = MODE_INFO[m].tab;
+      btn.onclick = () => {
+        mode = m;
+        stepState = 0;
+        progressSlider.value = 0;
+        updatePanel();
+        regenerateData();
+        renderAll();
+      };
+      tabsEl.appendChild(btn);
+    });
+  }
+
+  function updateTabs(){
+    [...tabsEl.children].forEach(btn=>{
+      btn.classList.toggle("active", btn.dataset.mode === mode);
+    });
+  }
+
+  function updatePanel(){
+    updateTabs();
+
+    const info = MODE_INFO[mode];
+    panelTitle.textContent = info.title;
+    storyText.innerHTML = info.story;
+    goalText.textContent = info.goal;
+    objectsText.textContent = info.objects;
+    usefulText.textContent = info.useful;
+    weakText.textContent = info.weak;
+    formulaText.innerHTML = info.formula;
+    footerNote.textContent = info.footer;
+
+    legendEl.innerHTML = "";
+    info.legend.forEach(([c, txt])=>{
+      const row = document.createElement("div");
+      row.className = "leg";
+      row.innerHTML = `<span class="sw" style="background:${c}"></span><span>${txt}</span>`;
+      legendEl.appendChild(row);
+    });
+
+    cVal.textContent = Number(cSlider.value).toFixed(2);
+    noiseVal.textContent = Number(noiseSlider.value).toFixed(2);
+    kernelVal.textContent = Number(kernelSlider.value).toFixed(2);
+    progressVal.textContent = Number(progressSlider.value).toFixed(2);
+
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      MathJax.typesetPromise([formulaText]).catch(err => console.error(err));
+    }
+  }
+
+  function linspace(a,b,n){
+    const arr = [];
+    for(let i=0;i<n;i++) arr.push(a + (b-a)*i/(n-1));
+    return arr;
+  }
+
+  function regenerateData(){
+    const noise = Number(noiseSlider.value);
+
+    if (mode === "circle-example" || mode === "kernel-trick") {
+      const ptsA = [];
+      const ptsB = [];
+
+      for(let i=0;i<28;i++){
+        const r = 0.85 + 0.18*randn()*noise + 0.08*Math.random();
+        const t = Math.random()*Math.PI*2;
+        ptsA.push({x:r*Math.cos(t), y:r*Math.sin(t), cls:+1});
+      }
+
+      for(let i=0;i<44;i++){
+        const r = 2.2 + 0.28*randn()*noise + 0.18*Math.random();
+        const t = Math.random()*Math.PI*2;
+        ptsB.push({x:r*Math.cos(t), y:r*Math.sin(t), cls:-1});
+      }
+
+      data.points = ptsA.concat(ptsB);
+      return;
+    }
+
+    const plus = [];
+    const minus = [];
+    for(let i=0;i<24;i++){
+      plus.push({
+        x: -1.7 + 0.75*randn()*noise + 0.55*Math.random(),
+        y:  1.2 + 0.8*randn()*noise + 0.7*Math.random(),
+        cls:+1
+      });
+      minus.push({
+        x:  1.6 + 0.85*randn()*noise - 0.55*Math.random(),
+        y: -1.0 + 0.75*randn()*noise - 0.6*Math.random(),
+        cls:-1
+      });
+    }
+
+    if (mode === "soft-margin") {
+      plus.push({x: 0.8 + 0.4*noise, y:-0.2, cls:+1});
+      minus.push({x:-0.7 - 0.4*noise, y: 0.1, cls:-1});
+    }
+
+    data.points = plus.concat(minus);
+  }
+
+  function clearCanvas(c, w, h){
+    c.clearRect(0,0,w,h);
+    c.fillStyle = "rgba(255,255,255,.02)";
+    c.fillRect(0,0,w,h);
+  }
+
+  function mapX(x, xMin, xMax, w){ return (x-xMin)/(xMax-xMin)*w; }
+  function mapY(y, yMin, yMax, h){ return h - (y-yMin)/(yMax-yMin)*h; }
+
+  function drawGrid(c, w, h, xMin, xMax, yMin, yMax){
+    c.save();
+    c.strokeStyle = "rgba(255,255,255,.08)";
+    c.lineWidth = 1;
+
+    for(let i=0;i<=8;i++){
+      const x = i*w/8;
+      c.beginPath();
+      c.moveTo(x,0);
+      c.lineTo(x,h);
+      c.stroke();
+    }
+
+    for(let i=0;i<=6;i++){
+      const y = i*h/6;
+      c.beginPath();
+      c.moveTo(0,y);
+      c.lineTo(w,y);
+      c.stroke();
+    }
+
+    const x0 = mapX(0,xMin,xMax,w);
+    const y0 = mapY(0,yMin,yMax,h);
+
+    c.strokeStyle = "rgba(255,255,255,.25)";
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(x0,0); c.lineTo(x0,h); c.stroke();
+    c.beginPath();
+    c.moveTo(0,y0); c.lineTo(w,y0); c.stroke();
+    c.restore();
+  }
+
+  function drawPoint(c, x, y, cls, support=false, violated=false, xMin=-4, xMax=4, yMin=-4, yMax=4){
+    const px = mapX(x, xMin, xMax, c.canvas.width);
+    const py = mapY(y, yMin, yMax, c.canvas.height);
+
+    c.beginPath();
+    c.arc(px, py, support ? 7.2 : 5.2, 0, Math.PI*2);
+    c.fillStyle = cls > 0 ? "#7dd3fc" : "#fb7185";
+    c.fill();
+
+    if (support) {
+      c.lineWidth = 3;
+      c.strokeStyle = "#22c55e";
+      c.stroke();
+    } else {
+      c.lineWidth = 1;
+      c.strokeStyle = "rgba(255,255,255,.30)";
+      c.stroke();
+    }
+
+    if (violated) {
+      c.beginPath();
+      c.arc(px, py, 11, 0, Math.PI*2);
+      c.strokeStyle = "#fb923c";
+      c.lineWidth = 2;
+      c.setLineDash([4,4]);
+      c.stroke();
+      c.setLineDash([]);
+    }
+  }
+
+  function drawLine(c, wVec, b, color, width=3, dash=[], xMin=-4, xMax=4, yMin=-4, yMax=4){
+    const [wx, wy] = wVec;
+    if (Math.abs(wy) < 1e-6) return;
+
+    const x1 = xMin, x2 = xMax;
+    const y1 = -(wx*x1 + b)/wy;
+    const y2 = -(wx*x2 + b)/wy;
+
+    c.save();
+    c.strokeStyle = color;
+    c.lineWidth = width;
+    c.setLineDash(dash);
+    c.beginPath();
+    c.moveTo(mapX(x1,xMin,xMax,c.canvas.width), mapY(y1,yMin,yMax,c.canvas.height));
+    c.lineTo(mapX(x2,xMin,xMax,c.canvas.width), mapY(y2,yMin,yMax,c.canvas.height));
+    c.stroke();
+    c.restore();
+  }
+
+  function drawLabel(c, text, x, y, color="#eef2ff"){
+    c.fillStyle = color;
+    c.font = "bold 14px system-ui";
+    c.fillText(text, x, y);
+  }
+
+  function score(point, wVec, b){
+    return wVec[0]*point.x + wVec[1]*point.y + b;
+  }
+
+  function estimateLinearSeparator(points){
+    let mPlus = {x:0,y:0,n:0};
+    let mMinus = {x:0,y:0,n:0};
+
+    points.forEach(p=>{
+      if (p.cls > 0){
+        mPlus.x += p.x; mPlus.y += p.y; mPlus.n++;
+      } else {
+        mMinus.x += p.x; mMinus.y += p.y; mMinus.n++;
+      }
+    });
+
+    mPlus.x /= mPlus.n; mPlus.y /= mPlus.n;
+    mMinus.x /= mMinus.n; mMinus.y /= mMinus.n;
+
+    const w = [mPlus.x - mMinus.x, mPlus.y - mMinus.y];
+    const mid = [(mPlus.x + mMinus.x)/2, (mPlus.y + mMinus.y)/2];
+    const b = -(w[0]*mid[0] + w[1]*mid[1]);
+
+    return {w, b, mPlus, mMinus};
+  }
+
+  function norm2(v){
+    return Math.sqrt(v[0]*v[0] + v[1]*v[1]);
+  }
+
+  function normalizedMargin(points, w, b){
+    const n = norm2(w) || 1e-6;
+    return points.map(p => ({...p, signed:p.cls*(score(p,w,b))/n}));
+  }
+
+  function supportVectors(points, w, b){
+    const arr = normalizedMargin(points, w, b).sort((a,b)=>a.signed-b.signed);
+    const plus = arr.filter(p=>p.cls>0).sort((a,b)=>Math.abs(a.signed-1)-Math.abs(b.signed-1));
+    const minus = arr.filter(p=>p.cls<0).sort((a,b)=>Math.abs(a.signed-1)-Math.abs(b.signed-1));
+    const supports = [];
+    if (plus[0]) supports.push(plus[0]);
+    if (minus[0]) supports.push(minus[0]);
+    return supports;
+  }
+
+  function marginWidth(w){
+    return 2 / (norm2(w) || 1e-6);
+  }
+
+  function renderMain(){
+    const w = plot.width, h = plot.height;
+    clearCanvas(ctx, w, h);
+
+    const xMin = -4, xMax = 4, yMin = -4, yMax = 4;
+    drawGrid(ctx, w, h, xMin, xMax, yMin, yMax);
+
+    if (mode === "kernel-trick" || mode === "circle-example") {
+      renderKernelView();
+      return;
+    }
+
+    const sep = estimateLinearSeparator(data.points);
+    let wVec = sep.w.slice();
+    let b = sep.b;
+
+    const progress = Number(progressSlider.value);
+    const C = Number(cSlider.value);
+
+    if (mode === "max-margin") {
+      // Animate from arbitrary line to estimated line
+      const startW = [1.7, 0.2];
+      const startB = 0.9;
+      wVec = [
+        startW[0]*(1-progress) + sep.w[0]*progress,
+        startW[1]*(1-progress) + sep.w[1]*progress
+      ];
+      b = startB*(1-progress) + sep.b*progress;
+
+      const n = norm2(wVec) || 1e-6;
+      drawLine(ctx, wVec, b, "#ffffff", 3, []);
+      drawLine(ctx, wVec, b-1.0*n, "#fbbf24", 2.5, [8,6]);
+      drawLine(ctx, wVec, b+1.0*n, "#fbbf24", 2.5, [8,6]);
+
+      data.points.forEach(p=>drawPoint(ctx,p.x,p.y,p.cls,false,false,xMin,xMax,yMin,yMax));
+
+      drawLabel(ctx, `Margin width ≈ ${marginWidth(wVec).toFixed(2)}`, 16, 28, "#22c55e");
+      drawLabel(ctx, "Animation: boundary adjusts to maximize the gap", 16, 50, "#eef2ff");
+    }
+
+    if (mode === "support-vectors") {
+      drawLine(ctx, wVec, b, "#ffffff", 3, []);
+      const n = norm2(wVec) || 1e-6;
+      drawLine(ctx, wVec, b-1.0*n, "#fbbf24", 2.5, [8,6]);
+      drawLine(ctx, wVec, b+1.0*n, "#fbbf24", 2.5, [8,6]);
+
+      const sv = supportVectors(data.points, wVec, b);
+      data.points.forEach(p=>{
+        const isSV = sv.some(s=>Math.abs(s.x-p.x)<1e-6 && Math.abs(s.y-p.y)<1e-6 && s.cls===p.cls);
+        drawPoint(ctx,p.x,p.y,p.cls,isSV,false,xMin,xMax,yMin,yMax);
+      });
+
+      drawLabel(ctx, "Green-outlined points are support vectors", 16, 28, "#22c55e");
+      drawLabel(ctx, "They are the points closest to the margin", 16, 50, "#eef2ff");
+
+      // Animate influence lines
+      ctx.save();
+      ctx.strokeStyle = "rgba(34,197,94,.55)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5,5]);
+      sv.forEach(s=>{
+        const px = mapX(s.x,xMin,xMax,w);
+        const py = mapY(s.y,yMin,yMax,h);
+
+        // project to boundary line
+        const t = -(wVec[0]*s.x + wVec[1]*s.y + b)/(wVec[0]*wVec[0]+wVec[1]*wVec[1]);
+        const qx = s.x + wVec[0]*t;
+        const qy = s.y + wVec[1]*t;
+
+        ctx.beginPath();
+        ctx.moveTo(px,py);
+        ctx.lineTo(mapX(qx,xMin,xMax,w), mapY(qy,yMin,yMax,h));
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+
+    if (mode === "soft-margin") {
+      // C changes the effective boundary tilt and allowance
+      const loosen = 1 / C;
+      const softW = [sep.w[0], sep.w[1] + 0.6*loosen];
+      const softB = sep.b + 0.35*loosen;
+
+      drawLine(ctx, softW, softB, "#ffffff", 3, []);
+      const n = norm2(softW) || 1e-6;
+      drawLine(ctx, softW, softB-1.0*n, "#fbbf24", 2.5, [8,6]);
+      drawLine(ctx, softW, softB+1.0*n, "#fbbf24", 2.5, [8,6]);
+
+      data.points.forEach(p=>{
+        const val = p.cls * score(p, softW, softB) / n;
+        const violated = val < 1;
+        drawPoint(ctx,p.x,p.y,p.cls,false,violated,xMin,xMax,yMin,yMax);
+
+        if (violated) {
+          // draw slack line
+          const t = -(softW[0]*p.x + softW[1]*p.y + softB - p.cls*n)/(softW[0]*softW[0]+softW[1]*softW[1]);
+          const qx = p.x + softW[0]*t;
+          const qy = p.y + softW[1]*t;
+
+          ctx.save();
+          ctx.strokeStyle = "#fb923c";
+          ctx.lineWidth = 2;
+          ctx.setLineDash([6,6]);
+          ctx.beginPath();
+          ctx.moveTo(mapX(p.x,xMin,xMax,w), mapY(p.y,yMin,yMax,h));
+          ctx.lineTo(mapX(qx,xMin,xMax,w), mapY(qy,yMin,yMax,h));
+          ctx.stroke();
+          ctx.restore();
+        }
+      });
+
+      drawLabel(ctx, `Current C = ${C.toFixed(2)}`, 16, 28, "#ffffff");
+      drawLabel(ctx, C > 2
+        ? "Large C: fewer violations, narrower margin"
+        : "Small C: more tolerance, wider margin",
+        16, 50, "#fb923c");
+    }
+  }
+
+  function renderKernelView(){
+    const w = plot.width, h = plot.height;
+    const xMin = -4, xMax = 4, yMin = -4, yMax = 4;
+
+    const gamma = Number(kernelSlider.value);
+    const progress = Number(progressSlider.value);
+
+    // decision field
+    const cell = 8;
+    for(let px=0; px<w; px+=cell){
+      for(let py=0; py<h; py+=cell){
+        const x = xMin + (xMax-xMin)*(px/w);
+        const y = yMax - (yMax-yMin)*(py/h);
+
+        let s = 0;
+        for(const p of data.points){
+          const dx = x-p.x, dy = y-p.y;
+          const k = Math.exp(-gamma*(dx*dx + dy*dy));
+          s += p.cls*k;
+        }
+
+        // morph from linear-ish to fully curved using progress
+        const radial = s;
+        const hybrid = (1-progress)*(x*0.15 - y*0.05) + progress*radial;
+
+        if (hybrid > 0) ctx.fillStyle = "rgba(125,211,252,.16)";
+        else ctx.fillStyle = "rgba(251,113,133,.16)";
+        ctx.fillRect(px,py,cell,cell);
+      }
+    }
+
+    drawGrid(ctx, w, h, xMin, xMax, yMin, yMax);
+
+    // approximate zero contour
+    ctx.save();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2.5;
+
+    for(let px=0; px<w-cell; px+=cell){
+      for(let py=0; py<h-cell; py+=cell){
+        const samples = [];
+        const corners = [
+          [px,py],[px+cell,py],[px,py+cell],[px+cell,py+cell]
+        ];
+        for(const [cx,cy] of corners){
+          const x = xMin + (xMax-xMin)*(cx/w);
+          const y = yMax - (yMax-yMin)*(cy/h);
+          let s = 0;
+          for(const p of data.points){
+            const dx=x-p.x, dy=y-p.y;
+            const k = Math.exp(-gamma*(dx*dx + dy*dy));
+            s += p.cls*k;
+          }
+          const hybrid = (1-progress)*(x*0.15 - y*0.05) + progress*s;
+          samples.push(hybrid);
+        }
+        const mn = Math.min(...samples), mx = Math.max(...samples);
+        if (mn <= 0 && mx >= 0) {
+          ctx.strokeRect(px,py,cell,cell);
+        }
+      }
+    }
+    ctx.restore();
+
+    data.points.forEach(p=>{
+      drawPoint(ctx,p.x,p.y,p.cls,false,false,xMin,xMax,yMin,yMax);
+    });
+
+    if (mode === "kernel-trick") {
+      drawLabel(ctx, "Animation: straight separator morphs into curved separator", 16, 28, "#ffffff");
+      drawLabel(ctx, `RBF-like strength = ${gamma.toFixed(2)}`, 16, 50, "#a78bfa");
+    } else {
+      drawLabel(ctx, "Ring-shaped data: linear separation fails", 16, 28, "#ffffff");
+      drawLabel(ctx, "Curved boundary succeeds", 16, 50, "#a78bfa");
+    }
+  }
+
+  function renderMini(){
+    const w = miniCanvas.width, h = miniCanvas.height;
+    clearCanvas(mctx, w, h);
+
+    if (mode === "max-margin") {
+      renderMiniMargin();
+      return;
+    }
+    if (mode === "support-vectors") {
+      renderMiniSupport();
+      return;
+    }
+    if (mode === "soft-margin") {
+      renderMiniSoft();
+      return;
+    }
+    if (mode === "kernel-trick" || mode === "circle-example") {
+      renderMiniKernel();
+      return;
+    }
+  }
+
+  function renderMiniMargin(){
+    const w = miniCanvas.width, h = miniCanvas.height;
+    const c = mctx;
+
+    c.fillStyle = "rgba(255,255,255,.04)";
+    c.fillRect(0,0,w,h);
+
+    const centerY = h/2;
+    const progress = Number(progressSlider.value);
+    const margin = 26 + 50*progress;
+
+    c.strokeStyle = "#ffffff";
+    c.lineWidth = 3;
+    c.beginPath();
+    c.moveTo(w/2, 20);
+    c.lineTo(w/2, h-20);
+    c.stroke();
+
+    c.strokeStyle = "#fbbf24";
+    c.setLineDash([8,6]);
+    c.beginPath();
+    c.moveTo(w/2-margin, 20);
+    c.lineTo(w/2-margin, h-20);
+    c.stroke();
+    c.beginPath();
+    c.moveTo(w/2+margin, 20);
+    c.lineTo(w/2+margin, h-20);
+    c.stroke();
+    c.setLineDash([]);
+
+    c.fillStyle = "#22c55e";
+    c.font = "bold 14px system-ui";
+    c.fillText(`margin = ${(2*margin/30).toFixed(2)} (illustrative)`, 16, 26);
+    c.fillStyle = "#eef2ff";
+    c.fillText("Wider margin = safer separation", 16, 48);
+  }
+
+  function renderMiniSupport(){
+    const c = mctx, w = miniCanvas.width, h = miniCanvas.height;
+    c.fillStyle = "rgba(255,255,255,.04)";
+    c.fillRect(0,0,w,h);
+
+    // boundary
+    c.strokeStyle = "#ffffff";
+    c.lineWidth = 3;
+    c.beginPath();
+    c.moveTo(w*0.48, 20);
+    c.lineTo(w*0.56, h-20);
+    c.stroke();
+
+    // support vectors
+    const pts = [
+      {x:130,y:75, col:"#7dd3fc", sv:false},
+      {x:165,y:98, col:"#7dd3fc", sv:true},
+      {x:120,y:145, col:"#7dd3fc", sv:false},
+      {x:300,y:70, col:"#fb7185", sv:false},
+      {x:265,y:110, col:"#fb7185", sv:true},
+      {x:312,y:148, col:"#fb7185", sv:false},
+    ];
+
+    pts.forEach(p=>{
+      c.beginPath();
+      c.arc(p.x,p.y,p.sv?9:6,0,Math.PI*2);
+      c.fillStyle=p.col;
+      c.fill();
+      if (p.sv){
+        c.strokeStyle="#22c55e";
+        c.lineWidth=3;
+      } else {
+        c.strokeStyle="rgba(255,255,255,.25)";
+        c.lineWidth=1.2;
+      }
+      c.stroke();
+    });
+
+    c.fillStyle="#22c55e";
+    c.font="bold 14px system-ui";
+    c.fillText("Only the edge points really 'hold up' the boundary", 16, 24);
+  }
+
+  function renderMiniSoft(){
+    const c = mctx, w = miniCanvas.width, h = miniCanvas.height;
+    c.fillStyle = "rgba(255,255,255,.04)";
+    c.fillRect(0,0,w,h);
+
+    const C = Number(cSlider.value);
+    const strict = Math.min(1, C/5);
+
+    c.strokeStyle="#ffffff";
+    c.lineWidth=3;
+    c.beginPath();
+    c.moveTo(w*0.45,20);
+    c.lineTo(w*0.60,h-20);
+    c.stroke();
+
+    c.strokeStyle="#fbbf24";
+    c.setLineDash([8,6]);
+    c.beginPath();
+    c.moveTo(w*(0.45-0.12+0.05*(1-strict)),20);
+    c.lineTo(w*(0.60-0.12+0.05*(1-strict)),h-20);
+    c.stroke();
+    c.beginPath();
+    c.moveTo(w*(0.45+0.12-0.05*(1-strict)),20);
+    c.lineTo(w*(0.60+0.12-0.05*(1-strict)),h-20);
+    c.stroke();
+    c.setLineDash([]);
+
+    // good points
+    const pts = [
+      [115,65,"#7dd3fc"], [145,130,"#7dd3fc"], [110,160,"#7dd3fc"],
+      [315,65,"#fb7185"], [285,135,"#fb7185"], [320,165,"#fb7185"]
+    ];
+    pts.forEach(([x,y,col])=>{
+      c.beginPath(); c.arc(x,y,6,0,Math.PI*2); c.fillStyle=col; c.fill();
+    });
+
+    // violating point
+    c.beginPath();
+    c.arc(215,118,7,0,Math.PI*2);
+    c.fillStyle="#fb7185";
+    c.fill();
+    c.strokeStyle="#fb923c";
+    c.lineWidth=3;
+    c.setLineDash([4,4]);
+    c.stroke();
+    c.setLineDash([]);
+
+    c.fillStyle="#fb923c";
+    c.font="bold 14px system-ui";
+    c.fillText(C > 2 ? "Large C: less tolerance for mistakes" : "Small C: more tolerance for violations", 16, 24);
+  }
+
+  function renderMiniKernel(){
+    const c = mctx, w = miniCanvas.width, h = miniCanvas.height;
+    c.fillStyle = "rgba(255,255,255,.04)";
+    c.fillRect(0,0,w,h);
+
+    // left: original space
+    c.fillStyle="#eef2ff";
+    c.font="bold 13px system-ui";
+    c.fillText("Original space", 24, 24);
+    c.fillText("Lifted space intuition", 242, 24);
+
+    // ring
+    const cx = 110, cy = 120;
+    c.strokeStyle="#fb7185";
+    c.lineWidth=14;
+    c.beginPath();
+    c.arc(cx,cy,56,0,Math.PI*2);
+    c.stroke();
+
+    c.beginPath();
+    c.arc(cx,cy,22,0,Math.PI*2);
+    c.fillStyle="#7dd3fc";
+    c.fill();
+
+    // arrow
+    c.strokeStyle="#a78bfa";
+    c.lineWidth=3;
+    c.beginPath();
+    c.moveTo(170,120);
+    c.lineTo(235,120);
+    c.stroke();
+    c.beginPath();
+    c.moveTo(227,112);
+    c.lineTo(235,120);
+    c.lineTo(227,128);
+    c.stroke();
+
+    // lifted view
+    c.strokeStyle="#ffffff";
+    c.lineWidth=2.5;
+    c.beginPath();
+    c.moveTo(300,30);
+    c.lineTo(300,190);
+    c.stroke();
+
+    c.beginPath();
+    c.moveTo(250,155);
+    c.lineTo(390,155);
+    c.stroke();
+
+    c.fillStyle="#7dd3fc";
+    c.beginPath();
+    c.arc(300,165,8,0,Math.PI*2);
+    c.fill();
+
+    c.fillStyle="#fb7185";
+    c.beginPath();
+    c.arc(300,75,8,0,Math.PI*2);
+    c.fill();
+
+    c.strokeStyle="#22c55e";
+    c.lineWidth=3;
+    c.beginPath();
+    c.moveTo(245,120);
+    c.lineTo(390,120);
+    c.stroke();
+
+    c.fillStyle="#22c55e";
+    c.font="bold 14px system-ui";
+    c.fillText("Now a linear cut works", 240, 210);
+  }
+
+  function renderAll(){
+    renderMain();
+    renderMini();
+  }
+
+  function animateProgress(){
+    if (animTimer){
+      clearInterval(animTimer);
+      animTimer = null;
+      animateBtn.textContent = "Play animation";
+      return;
+    }
+
+    animateBtn.textContent = "Stop animation";
+    let p = Number(progressSlider.value);
+
+    animTimer = setInterval(()=>{
+      p += 0.02;
+      if (p > 1){
+        p = 0;
+      }
+      progressSlider.value = p.toFixed(2);
+      updatePanel();
+      renderAll();
+    }, 50);
+  }
+
+  function stepExplanation(){
+    stepState = (stepState + 1) % 4;
+
+    if (mode === "max-margin"){
+      progressSlider.value = [0.00, 0.35, 0.70, 1.00][stepState];
+    }
+    else if (mode === "kernel-trick"){
+      progressSlider.value = [0.00, 0.30, 0.65, 1.00][stepState];
+    }
+    else if (mode === "support-vectors"){
+      progressSlider.value = [0.20, 0.45, 0.75, 1.00][stepState];
+    }
+    else {
+      progressSlider.value = [0.00, 0.33, 0.66, 1.00][stepState];
+    }
+
+    updatePanel();
+    renderAll();
+  }
+
+  cSlider.addEventListener("input", ()=>{
+    updatePanel();
+    renderAll();
+  });
+
+  noiseSlider.addEventListener("input", ()=>{
+    updatePanel();
+    regenerateData();
+    renderAll();
+  });
+
+  kernelSlider.addEventListener("input", ()=>{
+    updatePanel();
+    renderAll();
+  });
+
+  progressSlider.addEventListener("input", ()=>{
+    updatePanel();
+    renderAll();
+  });
+
+  regenBtn.addEventListener("click", ()=>{
+    regenerateData();
+    renderAll();
+  });
+
+  animateBtn.addEventListener("click", animateProgress);
+  stepBtn.addEventListener("click", stepExplanation);
+
+  createTabs();
+  updatePanel();
+  regenerateData();
+  renderAll();
+
+  if (window.MathJax && window.MathJax.typesetPromise) {
+    MathJax.typesetPromise().catch(err => console.error(err));
+  }
+})();
+</script>
+</body>
+</html>

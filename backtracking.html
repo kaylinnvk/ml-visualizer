@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Backtracking Line Search (Armijo) — Step Size Animation</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#111a33;
+      --text:#e9eefc;
+      --muted:#a8b3d6;
+
+      --curve:#6ee7ff;        /* φ(t) */
+      --armijo:#ffb020;       /* Armijo RHS line */
+      --tangent:#b6ff7a;      /* tangent at t=0 */
+      --shade:rgba(34,197,94,.16); /* accepted region shading */
+      --ttrial:#ff4d7d;       /* trial t marker */
+      --accept:#22c55e;       /* accepted marker */
+
+      --grid:rgba(255,255,255,.08);
+      --axis:rgba(255,255,255,.3);
+
+      --btn:#1b2a55;
+      --btnHover:#24366f;
+      --shadow: rgba(0,0,0,.35);
+    }
+
+    html, body{
+      height:100%;
+    }
+
+    html{
+      background: radial-gradient(1200px 700px at 20% 15%, #182657 0%, var(--bg) 55%);
+      background-repeat:no-repeat;
+      background-attachment:fixed;
+      background-size:cover;
+    }
+
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background:transparent;
+      color:var(--text);
+      display:flex;
+      justify-content:center;
+      padding:22px;
+      min-height:100%;
+    }
+
+    .wrap{
+      width:min(980px, 100%);
+      display:grid;
+      grid-template-columns: 1.25fr .75fr;
+      gap:16px;
+      align-items:start;
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(17,26,51,.92), rgba(12,17,35,.92));
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius:16px;
+      box-shadow: 0 18px 50px var(--shadow);
+      overflow:hidden;
+    }
+
+    .header{ padding:14px 16px 0 16px; }
+    .title{ font-size:18px; font-weight:700; margin:0 0 4px 0; }
+    .subtitle{ margin:0 0 12px 0; color:var(--muted); font-size:13px; line-height:1.35; }
+
+    .viz{ padding:10px 12px 14px 12px; }
+    svg{
+      width:100%;
+      height:auto;
+      display:block;
+      background: rgba(255,255,255,.02);
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.06);
+    }
+
+    .side{ padding:14px 14px 16px 14px; }
+
+    .row{ display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 12px 0; }
+
+    button{
+      border:1px solid rgba(255,255,255,.10);
+      background:var(--btn);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:650;
+      font-size:13px;
+      transition: .15s ease;
+    }
+    button:hover{ background:var(--btnHover); transform: translateY(-1px); }
+    button:active{ transform: translateY(0px); }
+    button[disabled]{ opacity:.55; cursor:not-allowed; transform:none; }
+
+    .kv{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px 12px;
+      margin-top:8px;
+    }
+    .pill{
+      padding:10px 10px;
+      border-radius:12px;
+      background: rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+    }
+    .pill .k{ color:var(--muted); font-size:12px; margin-bottom:4px; }
+    .pill .v{ font-size:14px; font-weight:700; }
+
+    .formula{
+      margin-top:12px;
+      padding:12px 12px;
+      border-radius:12px;
+      background: rgba(0,0,0,.18);
+      border:1px dashed rgba(255,255,255,.12);
+      font-size:13px;
+      color:var(--text);
+      line-height:1.45;
+    }
+    code{ color:#d7e0ff; }
+
+    .legend{
+      margin-top:12px;
+      display:grid;
+      gap:8px;
+      font-size:13px;
+      color:var(--muted);
+    }
+    .leg{ display:flex; align-items:center; gap:10px; }
+    .sw{
+      width:14px; height:14px; border-radius:5px;
+      background:#fff;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.15) inset;
+    }
+
+    .note{ margin-top:12px; color:var(--muted); font-size:12px; line-height:1.45; }
+
+    label{
+      font-size:12px;
+      color:var(--muted);
+      display:block;
+      margin:10px 0 6px 2px;
+    }
+    label span{
+      float:right;
+      font-weight:800;
+      color:var(--text);
+    }
+
+    input[type="range"]{ width:100%; accent-color:#9fb0ff; }
+
+    .status{
+      margin-top:10px;
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+      font-size:13px;
+      line-height:1.4;
+    }
+    .status b{ color:var(--text); }
+    .small{ font-size:12px; color:var(--muted); }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <!-- LEFT: Visualization -->
+    <div class="card">
+      <div class="header">
+        <p class="title">Backtracking Line Search (Armijo condition)</p>
+        <p class="subtitle">
+          Start with <b>t = 1</b>. If Armijo isn’t satisfied, shrink <b>t ← βt</b>
+          until <b>φ(t) ≤ φ(0)+α t φ′(0)</b>.
+        </p>
+      </div>
+
+      <div class="viz">
+        <svg id="svg" viewBox="0 0 860 520" role="img" aria-label="Backtracking line search animation">
+          <g id="grid"></g>
+          <g id="axes"></g>
+
+          <!-- accepted region shading -->
+          <rect id="acceptRegion" x="0" y="0" width="0" height="0" fill="var(--shade)"></rect>
+          <text id="t0Text" font-size="13" fill="rgba(255,255,255,.85)" font-weight="700"></text>
+
+          <!-- main curves -->
+          <path id="curve" fill="none" stroke="var(--curve)" stroke-width="4" stroke-linecap="round"></path>
+          <path id="armijo" fill="none" stroke="var(--armijo)" stroke-width="3" stroke-dasharray="10 8" stroke-linecap="round"></path>
+
+          <!-- tangent line at t=0 -->
+          <path id="tangent" fill="none" stroke="var(--tangent)" stroke-width="3" stroke-dasharray="6 6" stroke-linecap="round"></path>
+          <text id="tangentLabel" font-size="12" fill="var(--tangent)" font-weight="800"></text>
+
+          <!-- vertical guide at trial t -->
+          <path id="vGuide" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="2" stroke-dasharray="6 6"></path>
+
+          <!-- markers -->
+          <g id="markers">
+            <circle id="t0dot" r="6" fill="white"></circle>
+            <text id="t0label" font-size="13" fill="white"></text>
+
+            <circle id="trialDot" r="7" fill="var(--ttrial)"></circle>
+            <text id="trialLabel" font-size="13" fill="var(--ttrial)" font-weight="800"></text>
+
+            <circle id="acceptDot" r="7" fill="var(--accept)" opacity="0"></circle>
+            <text id="acceptLabel" font-size="13" fill="var(--accept)" font-weight="900" opacity="0"></text>
+          </g>
+
+          <!-- annotation bubble -->
+          <g id="bubble">
+            <rect id="bubbleRect" x="0" y="0" width="340" height="104" rx="14"
+                  fill="rgba(0,0,0,.40)" stroke="rgba(255,255,255,.12)"></rect>
+            <text id="bubbleText" x="0" y="0" font-size="13" fill="var(--text)"></text>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <!-- RIGHT: Controls -->
+    <div class="card">
+      <div class="side">
+        <div class="row">
+          <button id="btnPlay">▶ Play</button>
+          <button id="btnStep">Step</button>
+          <button id="btnReset">Reset</button>
+        </div>
+
+        <label for="alpha">
+          α (how strict the decrease requirement is)
+          <span id="alphaDisplay">0.20</span>
+        </label>
+        <input id="alpha" type="range" min="0.05" max="0.45" step="0.01" value="0.20" />
+        <div class="small">Typical: 0.1 to 0.3</div>
+
+        <label for="beta">
+          β (how much we shrink t each backtrack)
+          <span id="betaDisplay">0.50</span>
+        </label>
+        <input id="beta" type="range" min="0.20" max="0.90" step="0.01" value="0.50" />
+        <div class="small">Typical: 0.3 to 0.8</div>
+
+        <div class="kv">
+          <div class="pill"><div class="k">Current trial step</div><div class="v"><span id="tVal">1.000</span></div></div>
+          <div class="pill"><div class="k">Backtrack count</div><div class="v"><span id="kVal">0</span></div></div>
+          <div class="pill"><div class="k">φ(t) = f(x+tΔx)</div><div class="v"><span id="phiVal">—</span></div></div>
+          <div class="pill"><div class="k">Armijo RHS</div><div class="v"><span id="rhsVal">—</span></div></div>
+        </div>
+
+        <div class="formula">
+          Accept <b>t</b> when:<br/>
+          <code>φ(t) ≤ φ(0) + α · t · φ′(0)</code><br/>
+          where <code>φ′(0) = ∇f(x)ᵀΔx</code> (negative if Δx is a descent direction).
+        </div>
+
+        <div class="legend">
+          <div class="leg"><span class="sw" style="background:var(--curve)"></span>Curve: φ(t)</div>
+          <div class="leg"><span class="sw" style="background:var(--armijo)"></span>Armijo bound (RHS)</div>
+          <div class="leg"><span class="sw" style="background:var(--tangent)"></span>Tangent at t=0 (slope φ′(0))</div>
+          <div class="leg"><span class="sw" style="background:var(--shade)"></span>Accepted region (t ≤ t₀)</div>
+          <div class="leg"><span class="sw" style="background:var(--ttrial)"></span>Trial t</div>
+          <div class="leg"><span class="sw" style="background:var(--accept)"></span>Accepted t</div>
+        </div>
+
+        <div class="status" id="statusBox">
+          <b>Status:</b> Ready. Press <b>Play</b> or <b>Step</b>.
+          <div class="small">Tip: Bigger α = harder to accept. Smaller β = faster shrinking.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ===== 1) Toy line function φ(t) =====
+  function phi(t){
+    // Decrease first, then curve up.
+    return 1.4 + 1.7*Math.pow(t - 0.35, 2) + 0.35*Math.pow(t, 3);
+  }
+
+  // Numerical derivative at 0
+  const eps = 1e-5;
+  const phi0 = phi(0);
+  const dphi0raw = (phi(eps) - phi0) / eps;
+
+  // Ensure a descent slope for the Armijo picture (negative slope)
+  const slope0 = (dphi0raw < 0) ? dphi0raw : -Math.abs(dphi0raw);
+
+  function armijoRHS(t, alpha){ return phi0 + alpha * t * slope0; }
+
+  // ===== 2) SVG setup =====
+  const W = 860, H = 520;
+  const pad = {l:70, r:24, t:28, b:62};
+  const tMin = 0, tMax = 1.25;
+
+  const svg = document.getElementById("svg");
+  const gridG = document.getElementById("grid");
+  const axesG = document.getElementById("axes");
+
+  const curvePath = document.getElementById("curve");
+  const armijoPath = document.getElementById("armijo");
+  const tangentPath = document.getElementById("tangent");
+  const tangentLabel = document.getElementById("tangentLabel");
+
+  const acceptRegion = document.getElementById("acceptRegion");
+  const t0Text = document.getElementById("t0Text");
+
+  const vGuide = document.getElementById("vGuide");
+  const t0dot = document.getElementById("t0dot");
+  const t0label = document.getElementById("t0label");
+  const trialDot = document.getElementById("trialDot");
+  const trialLabel = document.getElementById("trialLabel");
+  const acceptDot = document.getElementById("acceptDot");
+  const acceptLabel = document.getElementById("acceptLabel");
+
+  const bubbleRect = document.getElementById("bubbleRect");
+  const bubbleText = document.getElementById("bubbleText");
+
+  // ===== 3) UI elements =====
+  const alphaSlider = document.getElementById("alpha");
+  const betaSlider  = document.getElementById("beta");
+  const alphaDisplay = document.getElementById("alphaDisplay");
+  const betaDisplay  = document.getElementById("betaDisplay");
+
+  const tVal = document.getElementById("tVal");
+  const kVal = document.getElementById("kVal");
+  const phiVal = document.getElementById("phiVal");
+  const rhsVal = document.getElementById("rhsVal");
+  const statusBox = document.getElementById("statusBox");
+
+  const btnPlay = document.getElementById("btnPlay");
+  const btnStep = document.getElementById("btnStep");
+  const btnReset = document.getElementById("btnReset");
+
+  // ===== 4) Helpers =====
+  function mk(tag, attrs){
+    const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for(const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+
+  function computeYRange(alpha){
+    let ymin = Infinity, ymax = -Infinity;
+    const N = 260;
+    for(let i=0;i<=N;i++){
+      const t = tMin + (tMax-tMin)*i/N;
+      const y1 = phi(t);
+      const y2 = armijoRHS(t, alpha);
+      ymin = Math.min(ymin, y1, y2);
+      ymax = Math.max(ymax, y1, y2);
+    }
+    const m = (ymax - ymin) || 1;
+    return {ymin: ymin - 0.10*m, ymax: ymax + 0.12*m};
+  }
+
+  function xMap(t){ return pad.l + (t - tMin) * (W - pad.l - pad.r) / (tMax - tMin); }
+  function yMap(y, yr){ return pad.t + (yr.ymax - y) * (H - pad.t - pad.b) / (yr.ymax - yr.ymin); }
+
+  function pathFromFn(fn, yr){
+    const N = 260;
+    let d = "";
+    for(let i=0;i<=N;i++){
+      const t = tMin + (tMax-tMin)*i/N;
+      const x = xMap(t);
+      const y = yMap(fn(t), yr);
+      d += (i===0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+    }
+    return d;
+  }
+
+  function drawGridAndAxes(yr){
+    gridG.innerHTML = "";
+    axesG.innerHTML = "";
+
+    // vertical grid (t)
+    const vxCount = 6;
+    for(let i=0;i<=vxCount;i++){
+      const t = tMin + (tMax-tMin)*i/vxCount;
+      const x = xMap(t);
+      gridG.appendChild(mk("line",{x1:x,y1:pad.t,x2:x,y2:H-pad.b,stroke:"var(--grid)","stroke-width":2}));
+      const lbl = mk("text",{x:x,y:H-pad.b+30,"text-anchor":"middle",fill:"rgba(255,255,255,.65)","font-size":12});
+      lbl.textContent = t.toFixed(2);
+      axesG.appendChild(lbl);
+    }
+
+    // horizontal grid
+    const hyCount = 5;
+    for(let i=0;i<=hyCount;i++){
+      const frac = i/hyCount;
+      const yVal = yr.ymin + (yr.ymax-yr.ymin)*frac;
+      const y = yMap(yVal, yr);
+      gridG.appendChild(mk("line",{x1:pad.l,y1:y,x2:W-pad.r,y2:y,stroke:"var(--grid)","stroke-width":2}));
+      const lbl = mk("text",{x:pad.l-10,y:y+4,"text-anchor":"end",fill:"rgba(255,255,255,.65)","font-size":12});
+      lbl.textContent = yVal.toFixed(2);
+      axesG.appendChild(lbl);
+    }
+
+    // axes
+    axesG.appendChild(mk("line",{x1:pad.l,y1:H-pad.b,x2:W-pad.r,y2:H-pad.b,stroke:"var(--axis)","stroke-width":3}));
+    axesG.appendChild(mk("line",{x1:pad.l,y1:pad.t,x2:pad.l,y2:H-pad.b,stroke:"var(--axis)","stroke-width":3}));
+
+    const xt = mk("text",{x:(pad.l+W-pad.r)/2,y:H-18,"text-anchor":"middle",fill:"rgba(255,255,255,.85)","font-size":14,"font-weight":700});
+    xt.textContent="t (step size)";
+    axesG.appendChild(xt);
+
+    const yt = mk("text",{x:18,y:(pad.t+H-pad.b)/2,transform:`rotate(-90 18 ${(pad.t+H-pad.b)/2})`,
+                          "text-anchor":"middle",fill:"rgba(255,255,255,.85)","font-size":14,"font-weight":700});
+    yt.textContent="φ(t) = f(x + tΔx)";
+    axesG.appendChild(yt);
+  }
+
+  function format(x){
+    if(!isFinite(x)) return "—";
+    return (Math.abs(x) < 1e-3) ? x.toExponential(2) : x.toFixed(4);
+  }
+
+  function armijoOK(t, alpha){ return phi(t) <= armijoRHS(t, alpha); }
+
+  // Find t0 = first t where Armijo holds (approx, scanning from 0 outward)
+  function findT0(alpha){
+    const N = 600;
+    let lastBad = 0;
+    for(let i=1;i<=N;i++){
+      const tt = tMin + (tMax-tMin)*i/N;
+      if(armijoOK(tt, alpha)) return tt;
+      lastBad = tt;
+    }
+    return tMax; // if never holds in domain
+  }
+
+  // ===== 5) Backtracking state =====
+  let alpha = parseFloat(alphaSlider.value);
+  let beta  = parseFloat(betaSlider.value);
+
+  let t = 1.0;
+  let k = 0;
+  let accepted = false;
+
+  let playing = false;
+  let timer = null;
+
+  // Smoothly animate t from current -> target over duration ms
+  function animateTto(target, duration=550){
+    const start = t;
+    const startTime = performance.now();
+
+    return new Promise(resolve => {
+      function frame(now){
+        const u = Math.min((now - startTime)/duration, 1);
+        // ease in-out
+        const ease = u < 0.5 ? 2*u*u : 1 - Math.pow(-2*u+2,2)/2;
+        t = start + (target - start)*ease;
+        render();
+
+        if(u < 1) requestAnimationFrame(frame);
+        else { t = target; render(); resolve(); }
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
+  function setStatus(html){ statusBox.innerHTML = html; }
+
+  // ===== 6) Render =====
+  function render(){
+    alpha = parseFloat(alphaSlider.value);
+    beta  = parseFloat(betaSlider.value);
+
+    alphaDisplay.textContent = alpha.toFixed(2);
+    betaDisplay.textContent  = beta.toFixed(2);
+
+    const yr = computeYRange(alpha);
+
+    curvePath.setAttribute("d", pathFromFn(phi, yr));
+    armijoPath.setAttribute("d", pathFromFn((tt)=>armijoRHS(tt, alpha), yr));
+    drawGridAndAxes(yr);
+
+    // Tangent at t=0: y = φ(0) + φ'(0) t (visualizing ∇f(x)^TΔx)
+    // We'll draw it across the plot domain for clarity.
+    const tanFn = (tt) => phi0 + slope0*tt;
+    tangentPath.setAttribute("d", pathFromFn(tanFn, yr));
+    tangentLabel.setAttribute("x", xMap(0.62));
+    tangentLabel.setAttribute("y", yMap(tanFn(0.62), yr) - 10);
+    tangentLabel.textContent = "tangent at t=0 (slope φ′(0))";
+
+    // accepted region shading: [0, t0]
+    const t0 = findT0(alpha);
+    const x0 = xMap(0);
+    const xT0 = xMap(t0);
+    acceptRegion.setAttribute("x", x0);
+    acceptRegion.setAttribute("y", pad.t);
+    acceptRegion.setAttribute("width", Math.max(0, xT0 - x0));
+    acceptRegion.setAttribute("height", (H - pad.b) - pad.t);
+
+    t0Text.setAttribute("x", Math.min(x0 + 8, W-140));
+    t0Text.setAttribute("y", pad.t + 20);
+    t0Text.textContent = `Accepted region: t ≤ t₀ ≈ ${t0.toFixed(3)}`;
+
+    // point at t=0
+    const px0 = xMap(0), py0 = yMap(phi0, yr);
+    t0dot.setAttribute("cx", px0); t0dot.setAttribute("cy", py0);
+    t0label.setAttribute("x", px0 + 10);
+    t0label.setAttribute("y", py0 - 10);
+    t0label.textContent = "t=0";
+
+    // trial point
+    const xt = xMap(t), yt = yMap(phi(t), yr);
+    trialDot.setAttribute("cx", xt); trialDot.setAttribute("cy", yt);
+    trialLabel.setAttribute("x", xt + 12);
+    trialLabel.setAttribute("y", yt - 12);
+    trialLabel.textContent = `trial t=${t.toFixed(3)}`;
+
+    // vertical guide
+    vGuide.setAttribute("d", `M ${xt} ${pad.t} L ${xt} ${H-pad.b}`);
+
+    // accepted marker
+    if(accepted){
+      acceptDot.setAttribute("opacity", "1");
+      acceptLabel.setAttribute("opacity", "1");
+      acceptDot.setAttribute("cx", xt);
+      acceptDot.setAttribute("cy", yt);
+      acceptLabel.setAttribute("x", xt + 12);
+      acceptLabel.setAttribute("y", yt + 22);
+      acceptLabel.textContent = "ACCEPTED";
+    }else{
+      acceptDot.setAttribute("opacity", "0");
+      acceptLabel.setAttribute("opacity", "0");
+    }
+
+    // info
+    tVal.textContent = t.toFixed(3);
+    kVal.textContent = String(k);
+    phiVal.textContent = format(phi(t));
+    rhsVal.textContent = format(armijoRHS(t, alpha));
+
+    // bubble explanation
+    const ok = armijoOK(t, alpha);
+    const line1 = `Armijo check:  φ(t) ≤ φ(0) + α·t·φ′(0)`;
+    const line2 = `φ(t) = ${format(phi(t))}`;
+    const line3 = `RHS  = ${format(armijoRHS(t, alpha))}`;
+    const line4 = ok ? `✅ Holds → accept t` : `❌ Fails → backtrack: t ← βt`;
+
+    const bx = Math.min(Math.max(xt - 70, 20), W - 360);
+    const by = Math.min(Math.max(yt - 155, 16), H - 130);
+    bubbleRect.setAttribute("x", bx);
+    bubbleRect.setAttribute("y", by);
+    bubbleText.setAttribute("x", bx + 14);
+    bubbleText.setAttribute("y", by + 22);
+    bubbleText.innerHTML = `
+      <tspan x="${bx+14}" dy="0">${line1}</tspan>
+      <tspan x="${bx+14}" dy="18">${line2}</tspan>
+      <tspan x="${bx+14}" dy="18">${line3}</tspan>
+      <tspan x="${bx+14}" dy="18">${line4}</tspan>
+    `;
+
+    // status
+    if(accepted){
+      setStatus(`<b>Status:</b> Accepted at <b>t = ${t.toFixed(3)}</b> after <b>${k}</b> backtracks.
+        <div class="small">Next update (conceptually): <b>x ← x + tΔx</b>.</div>`);
+      btnStep.disabled = true;
+    }else{
+      setStatus(`<b>Status:</b> Trial <b>t = ${t.toFixed(3)}</b>. ${ok ? "Armijo holds → accept." : "Armijo fails → shrink t."}
+        <div class="small">Press <b>Step</b> to see: t ← βt (smoothly animated).</div>`);
+      btnStep.disabled = false;
+    }
+  }
+
+  // ===== 7) One step (with smooth shrinking) =====
+  async function doStep(){
+    if(accepted) return;
+
+    alpha = parseFloat(alphaSlider.value);
+    beta  = parseFloat(betaSlider.value);
+
+    const ok = armijoOK(t, alpha);
+    if(ok){
+      accepted = true;
+      render();
+      stop();
+      return;
+    }
+
+    const target = t * beta;
+    k += 1;
+
+    // animate shrink
+    await animateTto(target, 550);
+
+    if(t < 1e-4){
+      accepted = true;
+      setStatus(`<b>Status:</b> t became extremely small. Stop here.
+        <div class="small">Try a smaller α, a different direction Δx, or check your gradient.</div>`);
+      stop();
+    }
+    render();
+  }
+
+  // ===== 8) Play / pause / reset =====
+  function play(){
+    if(playing) return;
+    playing = true;
+    btnPlay.textContent = "⏸ Pause";
+    timer = setInterval(() => {
+      if(accepted){ stop(); return; }
+      doStep();
+    }, 950);
+  }
+  function stop(){
+    playing = false;
+    btnPlay.textContent = "▶ Play";
+    if(timer) clearInterval(timer);
+    timer = null;
+  }
+  function reset(){
+    stop();
+    t = 1.0; k = 0; accepted = false;
+    render();
+  }
+
+  btnPlay.addEventListener("click", () => { if(playing) stop(); else play(); });
+  btnStep.addEventListener("click", doStep);
+  btnReset.addEventListener("click", reset);
+
+  // If α or β changes, reset to keep the story clean
+  alphaSlider.addEventListener("input", reset);
+  betaSlider.addEventListener("input", reset);
+
+  render();
+})();
+</script>
+</body>
+</html>

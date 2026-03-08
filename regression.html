@@ -1,0 +1,1390 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Regression Detective Agency</title>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)'], ['$', '$']],
+        displayMath: [['\\[', '\\]']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#121a31;
+      --panel2:#182241;
+      --text:#eef2ff;
+      --muted:#aab4d8;
+      --grid:rgba(255,255,255,.08);
+      --axis:rgba(255,255,255,.35);
+      --accent:#7dd3fc;
+      --accent2:#fbbf24;
+      --accent3:#f472b6;
+      --good:#22c55e;
+      --bad:#ef4444;
+      --purple:#a78bfa;
+      --shadow:rgba(0,0,0,.35);
+    }
+
+    *{box-sizing:border-box}
+
+    html, body{
+      height:100%;
+    }
+
+    html{
+      background:
+        radial-gradient(900px 500px at 15% 10%, #1b2a5e 0%, transparent 45%),
+        radial-gradient(800px 500px at 90% 0%, #2a1545 0%, transparent 35%),
+        var(--bg);
+      background-repeat:no-repeat;
+      background-attachment:fixed;
+      background-size:cover;
+    }
+
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background:transparent;
+      color:var(--text);
+      padding:16px;
+      min-height:100%;
+    }
+
+    .app{
+      max-width:1250px;
+      height:100%;
+      margin:0 auto;
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:16px;
+      transform-origin: top center;
+      will-change: transform;
+    }
+
+    .card-graph{
+      background:linear-gradient(180deg, rgba(18,26,49,.96), rgba(11,16,32,.96));
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      box-shadow:0 18px 50px var(--shadow);
+    }
+
+    .card-info{
+      background:linear-gradient(180deg, rgba(18,26,49,.96), rgba(11,16,32,.96));
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      box-shadow:0 18px 50px var(--shadow);
+      width: 500px
+    }
+
+    .header{
+      padding:16px 18px 10px 18px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+
+    .title{
+      margin:0 0 6px 0;
+      font-size:22px;
+      font-weight:800;
+      letter-spacing:.2px;
+    }
+
+    .subtitle{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.45;
+    }
+
+    .tabs{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      padding:14px 16px 0 16px;
+    }
+
+    .tab{
+      border:1px solid rgba(255,255,255,.10);
+      background:#1a2750;
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-size:13px;
+      font-weight:700;
+      transition:.15s ease;
+    }
+
+    .tab:hover{ transform:translateY(-1px); background:#22346d; }
+    .tab.active{
+      background:linear-gradient(180deg, #2c4fb5, #213772);
+      box-shadow:0 0 0 1px rgba(255,255,255,.08) inset;
+    }
+
+    .main{
+      padding:14px 16px 16px 16px;
+    }
+
+    canvas, svg{
+      width:100%;
+      display:block;
+      background:rgba(255,255,255,.02);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:16px;
+    }
+
+    .plot-wrap{
+      padding:6px 0 0 0;
+    }
+
+    .controls{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+      margin-top:14px;
+    }
+
+    .control{
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:14px;
+      padding:12px;
+    }
+
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:8px;
+    }
+
+    label span{
+      float:right;
+      color:var(--text);
+      font-weight:800;
+    }
+
+    input[type="range"]{
+      width:100%;
+      accent-color:#9fb0ff;
+    }
+
+    .buttons{
+      display:flex;
+      gap:10px;
+      margin-top:12px;
+      flex-wrap:wrap;
+    }
+
+    button{
+      border:1px solid rgba(255,255,255,.10);
+      background:#1b2a55;
+      color:var(--text);
+      padding:10px 13px;
+      border-radius:12px;
+      cursor:pointer;
+      font-size:13px;
+      font-weight:700;
+      transition:.15s ease;
+    }
+
+    button:hover{ background:#24366f; transform:translateY(-1px); }
+
+    .side{
+      padding:16px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .info-box{
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:14px;
+      padding:14px;
+    }
+
+    .info-box h3{
+      margin:0 0 8px 0;
+      font-size:16px;
+    }
+
+    .info-box p{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.5;
+    }
+
+    .story{
+      font-size:14px;
+      line-height:1.55;
+      color:var(--text);
+    }
+
+    .mini{
+      height:220px;
+    }
+
+    .legend{
+      display:grid;
+      gap:8px;
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    .leg{
+      display:flex;
+      align-items:center;
+      gap:9px;
+    }
+
+    .sw{
+      width:14px;
+      height:14px;
+      border-radius:5px;
+      flex:0 0 14px;
+      box-shadow:0 0 0 1px rgba(255,255,255,.10) inset;
+    }
+
+    #formulaText{
+      font-size:13px;
+      line-height:1.6;
+      color:var(--text);
+      overflow-x:auto;
+    }
+
+    #formulaText mjx-container{
+      margin:.4em 0 !important;
+    }
+
+    .pill-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .pill{
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:12px;
+      padding:10px;
+    }
+
+    .pill .k{
+      font-size:11px;
+      color:var(--muted);
+      margin-bottom:4px;
+    }
+
+    .pill .v{
+      font-size:14px;
+      font-weight:800;
+    }
+
+    .footer-note{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.45;
+    }
+
+    @media (max-width: 980px){
+      .app{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card-graph">
+      <div class="header">
+        <h1 class="title">Regression Detective Agency</h1>
+        <p class="subtitle">
+          Each model is a different detective solving a data mystery.
+          Switch detectives to see how they fit data, handle noise, treat outliers, shrink coefficients, or classify suspects.
+        </p>
+      </div>
+
+      <div class="tabs" id="tabs"></div>
+
+      <div class="main">
+        <div class="plot-wrap">
+          <canvas id="plot" width="760" height="470"></canvas>
+        </div>
+
+        <div class="controls">
+          <div class="control">
+            <label>
+              Noise level
+              <span id="noiseVal">0.35</span>
+            </label>
+            <input id="noise" type="range" min="0.05" max="1.0" step="0.01" value="0.35">
+          </div>
+
+          <div class="control">
+            <label>
+              Regularization strength / difficulty
+              <span id="lambdaVal">0.60</span>
+            </label>
+            <input id="lambda" type="range" min="0.00" max="2.00" step="0.01" value="0.60">
+          </div>
+
+          <div class="control">
+            <label>
+              Outlier strength
+              <span id="outlierVal">1.20</span>
+            </label>
+            <input id="outlier" type="range" min="0.00" max="3.00" step="0.01" value="1.20">
+          </div>
+
+          <div class="control">
+            <label>
+              Polynomial degree / model flexibility
+              <span id="degreeVal">3</span>
+            </label>
+            <input id="degree" type="range" min="1" max="8" step="1" value="3">
+          </div>
+        </div>
+
+        <div class="buttons">
+          <button id="regen">Regenerate data</button>
+          <button id="animate">Play detective tour</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-info">
+      <div class="side">
+        <div class="info-box">
+          <h3>Coefficient / prior view</h3>
+          <canvas id="miniPlot" class="mini" width="430" height="220"></canvas>
+        </div>
+        
+        <div class="info-box">
+          <h3 id="modelName">Linear Regression</h3>
+          <div class="story" id="storyText"></div>
+        </div>
+
+        <div class="pill-grid">
+          <div class="pill">
+            <div class="k">Main idea</div>
+            <div class="v" id="mainIdea">Fit a straight line</div>
+          </div>
+          <div class="pill">
+            <div class="k">Best when</div>
+            <div class="v" id="bestWhen">Trend is roughly linear</div>
+          </div>
+          <div class="pill">
+            <div class="k">Weakness</div>
+            <div class="v" id="weakness">Sensitive to outliers</div>
+          </div>
+          <div class="pill">
+            <div class="k">Target type</div>
+            <div class="v" id="targetType">Continuous value</div>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <h3>Formula intuition</h3>
+          <div id="formulaText"></div>
+        </div>
+
+        <div class="info-box">
+          <h3>Visual legend</h3>
+          <div class="legend" id="legend"></div>
+        </div>
+
+        <div class="footer-note" id="footerNote">
+          Move the sliders to see how the detective changes behavior.
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const appEl = document.querySelector(".app");
+
+  function applyViewportScale(){
+    if(!appEl) return;
+    appEl.style.transform = "scale(1)";
+    const bodyStyle = getComputedStyle(document.body);
+    const pad = parseFloat(bodyStyle.paddingTop || "0") + parseFloat(bodyStyle.paddingBottom || "0");
+    const padX = parseFloat(bodyStyle.paddingLeft || "0") + parseFloat(bodyStyle.paddingRight || "0");
+    const maxH = window.innerHeight - pad;
+    const maxW = window.innerWidth - padX;
+    const rect = appEl.getBoundingClientRect();
+    const scale = Math.min(1, maxH / rect.height, maxW / rect.width);
+    appEl.style.transform = `scale(${scale})`;
+  }
+
+  const MODELS = [
+    "linear",
+    "ridge",
+    "lasso",
+    "robust",
+    "polynomial",
+    "logistic",
+    "softmax"
+  ];
+
+  const MODEL_INFO = {
+    linear: {
+      label: "Linear Regression",
+      idea: "Fit a straight line",
+      best: "Relationship is roughly straight",
+      weakness: "Sensitive to outliers and curved patterns",
+      target: "Continuous value",
+      story: `
+        Detective <b>Line</b> uses the simplest rule: draw one straight line that stays as close as possible to the evidence.
+        He works great when the pattern is basically straight. But if one witness is wildly wrong, he can get pulled off course.
+      `,
+      formula: `
+        \\[
+        \\hat{y} = w_0 + w_1 x
+        \\]
+        \\[
+        \\min_{w_0,w_1} \\sum_{i=1}^{n} \\left(y_i - \\hat{y}_i\\right)^2
+        \\]
+        Idea: make the vertical errors as small as possible.
+      `,
+      legend: [
+        ["#7dd3fc", "Fitted straight line"],
+        ["#ffffff", "Observed points"],
+        ["#ef4444", "Outlier"],
+        ["#fbbf24", "True underlying trend"]
+      ],
+      note: "No regularization: the detective uses all coefficients freely."
+    },
+    ridge: {
+      label: "Ridge Regression",
+      idea: "Shrink coefficients smoothly",
+      best: "Many useful features, but you want stability",
+      weakness: "Usually keeps all features, rarely exactly zero",
+      target: "Continuous value",
+      story: `
+        Detective <b>Ridge</b> is careful. He still fits the data, but he dislikes big, dramatic coefficients.
+        So he gently pulls every clue weight toward zero.
+        He says: “Use all clues, but don't overreact.”
+      `,
+      formula: `
+        \\[
+        \\hat{y} = w_0 + \\mathbf{w}^\\top \\mathbf{x}
+        \\]
+        \\[
+        \\min_{w_0,\\mathbf{w}}
+        \\sum_{i=1}^{n}
+        \\left(y_i - w_0 - \\mathbf{w}^\\top \\mathbf{x}_i\\right)^2
+        + \\lambda \\lVert \\mathbf{w} \\rVert_2^2
+        \\]
+        \\[
+        p(\\mathbf{w}) \\propto \\exp\\!\\left(-c\\lVert \\mathbf{w} \\rVert_2^2\\right)
+        \\]
+        Ridge uses an \\(L_2\\) penalty, which smoothly shrinks coefficients.
+      `,
+      legend: [
+        ["#7dd3fc", "Ridge fitted line"],
+        ["#ffffff", "Observed points"],
+        ["#a78bfa", "Gaussian / L2 prior shape"],
+        ["#fbbf24", "True trend"]
+      ],
+      note: "Ridge shrinks all coefficients, but usually does not remove them completely."
+    },
+    lasso: {
+      label: "Lasso Regression",
+      idea: "Shrink and possibly remove features",
+      best: "Some features may be unnecessary",
+      weakness: "Can be unstable when features are highly correlated",
+      target: "Continuous value",
+      story: `
+        Detective <b>Lasso</b> is strict. Weak clues may get thrown out completely.
+        Instead of just shrinking coefficients, he may say:
+        “This clue adds almost nothing. Ignore it.”
+      `,
+      formula: `
+        \\[
+        \\hat{y} = w_0 + \\mathbf{w}^\\top \\mathbf{x}
+        \\]
+        \\[
+        \\min_{w_0,\\mathbf{w}}
+        \\sum_{i=1}^{n}
+        \\left(y_i - w_0 - \\mathbf{w}^\\top \\mathbf{x}_i\\right)^2
+        + \\lambda \\lVert \\mathbf{w} \\rVert_1
+        \\]
+        \\[
+        p(\\mathbf{w}) \\propto \\exp\\!\\left(-c\\lVert \\mathbf{w} \\rVert_1\\right)
+        \\]
+        Lasso uses an \\(L_1\\) penalty, so some coefficients can become exactly zero.
+      `,
+      legend: [
+        ["#7dd3fc", "Lasso fitted line"],
+        ["#ffffff", "Observed points"],
+        ["#f472b6", "Laplacian / L1 prior shape"],
+        ["#fbbf24", "True trend"]
+      ],
+      note: "Lasso is famous for feature selection."
+    },
+    robust: {
+      label: "Robust Regression",
+      idea: "Downweight outliers",
+      best: "Some points are unreliable or extreme",
+      weakness: "May be less efficient if no outliers exist",
+      target: "Continuous value",
+      story: `
+        Detective <b>Robust</b> doesn't trust every witness equally.
+        If one witness says something extreme, he says:
+        “That sounds suspicious. I’ll listen, but not too much.”
+      `,
+      formula: `
+        \\[
+        \\min_{w_0,\\mathbf{w}}
+        \\sum_{i=1}^{n}
+        \\rho\\!\\left(y_i - w_0 - \\mathbf{w}^\\top \\mathbf{x}_i\\right)
+        \\]
+        A common choice is the Huber loss:
+        \\[
+        \\rho_\\delta(r)=
+        \\begin{cases}
+        \\tfrac{1}{2}r^2, & |r| \\le \\delta \\\\
+        \\delta |r| - \\tfrac{1}{2}\\delta^2, & |r| > \\delta
+        \\end{cases}
+        \\]
+        Small errors are treated like squared loss, but large outliers are downweighted.
+      `,
+      legend: [
+        ["#7dd3fc", "Ordinary least squares line"],
+        ["#22c55e", "Robust fitted line"],
+        ["#ef4444", "Outlier"],
+        ["#fbbf24", "True trend"]
+      ],
+      note: "Robust regression is the best 'skeptical detective' for messy data."
+    },
+    polynomial: {
+      label: "Polynomial Regression",
+      idea: "Fit curves, not just straight lines",
+      best: "Relationship bends or curves",
+      weakness: "High degree can overfit noise",
+      target: "Continuous value",
+      story: `
+        Detective <b>Curve</b> thinks the world is not always straight.
+        He uses powers like x², x³, x⁴ to bend the line.
+        This helps with curved patterns, but too much flexibility can make him chase noise.
+      `,
+      formula: `
+        \\[
+        \\hat{y} = w_0 + w_1x + w_2x^2 + \\cdots + w_dx^d
+        \\]
+        \\[
+        \\min_{w_0,\\dots,w_d}
+        \\sum_{i=1}^{n}
+        \\left(
+          y_i - \\sum_{j=0}^{d} w_j x_i^j
+        \\right)^2
+        \\]
+        This lets the model bend and fit curved relationships.
+      `,
+      legend: [
+        ["#7dd3fc", "Polynomial fit"],
+        ["#ffffff", "Observed points"],
+        ["#fbbf24", "True curved trend"]
+      ],
+      note: "Polynomial regression is still linear in the coefficients, even though the curve bends."
+    },
+    logistic: {
+      label: "Logistic Regression",
+      idea: "Predict probability of yes/no",
+      best: "Binary classification",
+      weakness: "Linear decision boundary unless features are transformed",
+      target: "Class probability",
+      story: `
+        Detective <b>Binary</b> does not predict a number like height or price.
+        He answers questions like:
+        “Is this suspect guilty: yes or no?”
+        He converts a linear score into a probability between 0 and 1.
+      `,
+      formula: `
+        \\[
+        z = w_0 + \\mathbf{w}^\\top \\mathbf{x}
+        \\]
+        \\[
+        p(y=1\\mid \\mathbf{x}) = \\sigma(z) = \\frac{1}{1+e^{-z}}
+        \\]
+        \\[
+        \\min_{w_0,\\mathbf{w}}
+        -\\sum_{i=1}^{n}
+        \\left[
+          y_i \\log p_i + (1-y_i)\\log(1-p_i)
+        \\right]
+        \\]
+        Logistic regression predicts a probability between 0 and 1 for binary classification.
+      `,
+      legend: [
+        ["#7dd3fc", "Sigmoid probability curve"],
+        ["#22c55e", "Class 1 points"],
+        ["#ef4444", "Class 0 points"],
+        ["#ffffff", "Decision threshold p = 0.5"]
+      ],
+      note: "Logistic regression is for classification, not ordinary regression."
+    },
+    softmax: {
+      label: "Softmax Regression",
+      idea: "Choose among many classes",
+      best: "Multi-class classification",
+      weakness: "Decision boundaries are linear unless features are transformed",
+      target: "Class probabilities",
+      story: `
+        Detective <b>Softmax</b> handles multiple suspects at once.
+        Instead of just “yes/no,” he asks:
+        “Which class is most likely: red, blue, or green?”
+        He gives probabilities for all classes that add up to 1.
+      `,
+      formula: `
+        \\[
+        z_k = \\mathbf{w}_k^\\top \\mathbf{x} + b_k
+        \\]
+        \\[
+        P(y=k\\mid \\mathbf{x}) =
+        \\frac{e^{z_k}}{\\sum_{j=1}^{K} e^{z_j}}
+        \\]
+        \\[
+        \\hat{y} = \\arg\\max_{k \\in \\{1,\\dots,K\\}} P(y=k\\mid \\mathbf{x})
+        \\]
+        Softmax regression extends logistic regression to multiple classes.
+      `,
+      legend: [
+        ["rgba(239,68,68,.65)", "Red class region"],
+        ["rgba(34,197,94,.65)", "Green class region"],
+        ["rgba(125,211,252,.75)", "Blue class region"],
+        ["#ffffff", "Observed points"]
+      ],
+      note: "Softmax is basically logistic regression generalized to multiple classes."
+    }
+  };
+
+  const tabsEl = document.getElementById("tabs");
+  const plot = document.getElementById("plot");
+  const pctx = plot.getContext("2d");
+  const miniPlot = document.getElementById("miniPlot");
+  const mctx = miniPlot.getContext("2d");
+
+  const noiseSlider = document.getElementById("noise");
+  const lambdaSlider = document.getElementById("lambda");
+  const outlierSlider = document.getElementById("outlier");
+  const degreeSlider = document.getElementById("degree");
+
+  const noiseVal = document.getElementById("noiseVal");
+  const lambdaVal = document.getElementById("lambdaVal");
+  const outlierVal = document.getElementById("outlierVal");
+  const degreeVal = document.getElementById("degreeVal");
+
+  const modelName = document.getElementById("modelName");
+  const storyText = document.getElementById("storyText");
+  const mainIdea = document.getElementById("mainIdea");
+  const bestWhen = document.getElementById("bestWhen");
+  const weakness = document.getElementById("weakness");
+  const targetType = document.getElementById("targetType");
+  const formulaText = document.getElementById("formulaText");
+  const legendEl = document.getElementById("legend");
+  const footerNote = document.getElementById("footerNote");
+
+  const regenBtn = document.getElementById("regen");
+  const animateBtn = document.getElementById("animate");
+
+  let currentModel = "linear";
+  let tourTimer = null;
+
+  let dataState = {};
+
+  function randn() {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  function linspace(a,b,n){
+    const arr=[];
+    for(let i=0;i<n;i++) arr.push(a+(b-a)*i/(n-1));
+    return arr;
+  }
+
+  function createTabs(){
+    MODELS.forEach(m=>{
+      const btn=document.createElement("button");
+      btn.className="tab";
+      btn.textContent=MODEL_INFO[m].label;
+      btn.onclick=()=>{
+        currentModel=m;
+        updateUI();
+        renderAll();
+      };
+      btn.dataset.model=m;
+      tabsEl.appendChild(btn);
+    });
+  }
+
+  function updateTabStyles(){
+    [...tabsEl.children].forEach(btn=>{
+      btn.classList.toggle("active", btn.dataset.model===currentModel);
+    });
+  }
+
+  function updateUI(){
+    updateTabStyles();
+
+    const info = MODEL_INFO[currentModel];
+    modelName.textContent = info.label;
+    storyText.innerHTML = info.story;
+    mainIdea.textContent = info.idea;
+    bestWhen.textContent = info.best;
+    weakness.textContent = info.weakness;
+    targetType.textContent = info.target;
+    formulaText.innerHTML = info.formula;
+
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      MathJax.typesetPromise([formulaText]).catch((err) => console.error(err));
+    }
+
+    footerNote.textContent = info.note;
+
+    legendEl.innerHTML = "";
+    info.legend.forEach(([c,txt])=>{
+      const row=document.createElement("div");
+      row.className="leg";
+      row.innerHTML = `<span class="sw" style="background:${c}"></span><span>${txt}</span>`;
+      legendEl.appendChild(row);
+    });
+
+    noiseVal.textContent = Number(noiseSlider.value).toFixed(2);
+    lambdaVal.textContent = Number(lambdaSlider.value).toFixed(2);
+    outlierVal.textContent = Number(outlierSlider.value).toFixed(2);
+    degreeVal.textContent = degreeSlider.value;
+  }
+
+  function regenerateData(){
+    const noise = Number(noiseSlider.value);
+    const outlierStrength = Number(outlierSlider.value);
+
+    const xs = linspace(-3,3,26);
+    const linearY = xs.map(x => 1.2*x + 0.4 + noise*randn());
+    const polyY = xs.map(x => 0.45*x*x*x - 1.1*x + 0.5 + noise*0.9*randn());
+
+    const outIdx = 18;
+    linearY[outIdx] += outlierStrength * 4.2;
+
+    const logisticX = linspace(-4,4,38);
+    const logisticPts = logisticX.map(x=>{
+      const p = 1/(1+Math.exp(-1.35*x));
+      const y = Math.random() < p ? 1 : 0;
+      return {x:x + 0.12*randn(), y};
+    });
+
+    const centers = [
+      {x:-1.8, y: 1.5, cls:0},
+      {x: 1.7, y: 1.4, cls:1},
+      {x: 0.2, y:-1.8, cls:2}
+    ];
+    const softmaxPts=[];
+    centers.forEach(c=>{
+      for(let i=0;i<26;i++){
+        softmaxPts.push({
+          x: c.x + 0.65*randn(),
+          y: c.y + 0.65*randn(),
+          cls: c.cls
+        });
+      }
+    });
+
+    dataState = { xs, linearY, polyY, outIdx, logisticPts, softmaxPts };
+  }
+
+  function solveLinearSystem(A, b){
+    const n = A.length;
+    const M = A.map((row,i)=>row.slice().concat([b[i]]));
+
+    for(let col=0; col<n; col++){
+      let pivot=col;
+      for(let r=col+1; r<n; r++){
+        if(Math.abs(M[r][col]) > Math.abs(M[pivot][col])) pivot=r;
+      }
+      [M[col], M[pivot]] = [M[pivot], M[col]];
+      const div = M[col][col] || 1e-10;
+      for(let j=col; j<=n; j++) M[col][j] /= div;
+      for(let r=0; r<n; r++){
+        if(r===col) continue;
+        const f = M[r][col];
+        for(let j=col; j<=n; j++) M[r][j] -= f * M[col][j];
+      }
+    }
+    return M.map(row=>row[n]);
+  }
+
+  function fitPolynomial(x, y, degree, ridge=0){
+    const n = x.length;
+    const d = degree + 1;
+
+    const X = Array.from({length:n}, ()=>Array(d).fill(0));
+    for(let i=0;i<n;i++){
+      let val=1;
+      for(let j=0;j<d;j++){
+        X[i][j]=val;
+        val*=x[i];
+      }
+    }
+
+    const XtX = Array.from({length:d}, ()=>Array(d).fill(0));
+    const Xty = Array(d).fill(0);
+
+    for(let i=0;i<n;i++){
+      for(let j=0;j<d;j++){
+        Xty[j] += X[i][j]*y[i];
+        for(let k=0;k<d;k++){
+          XtX[j][k] += X[i][j]*X[i][k];
+        }
+      }
+    }
+
+    for(let j=1;j<d;j++) XtX[j][j] += ridge;
+    return solveLinearSystem(XtX, Xty);
+  }
+
+  function predictPoly(coeffs, x){
+    let y=0, pow=1;
+    for(let i=0;i<coeffs.length;i++){
+      y += coeffs[i]*pow;
+      pow *= x;
+    }
+    return y;
+  }
+
+  function fitLassoApprox(x, y, lambda){
+    const ols = fitPolynomial(x, y, 1, 0);
+    const w0 = ols[0];
+    const w1 = ols[1];
+    const shrink = Math.max(0, Math.abs(w1) - lambda*0.8);
+    const w1s = Math.sign(w1)*shrink;
+    return [w0, w1s];
+  }
+
+  function fitRobustLine(x, y){
+    const n=x.length;
+    let w = fitPolynomial(x,y,1,0);
+
+    for(let iter=0; iter<10; iter++){
+      const weights = [];
+      for(let i=0;i<n;i++){
+        const r = y[i] - (w[0] + w[1]*x[i]);
+        const delta = 1.2;
+        const wi = Math.abs(r) <= delta ? 1 : delta/Math.abs(r);
+        weights.push(wi);
+      }
+
+      const XtWX = [[0,0],[0,0]];
+      const XtWy = [0,0];
+
+      for(let i=0;i<n;i++){
+        const xi=[1,x[i]];
+        const wi=weights[i];
+        XtWy[0]+=wi*xi[0]*y[i];
+        XtWy[1]+=wi*xi[1]*y[i];
+        XtWX[0][0]+=wi*xi[0]*xi[0];
+        XtWX[0][1]+=wi*xi[0]*xi[1];
+        XtWX[1][0]+=wi*xi[1]*xi[0];
+        XtWX[1][1]+=wi*xi[1]*xi[1];
+      }
+      w = solveLinearSystem(XtWX, XtWy);
+    }
+    return w;
+  }
+
+  function sigmoid(z){ return 1/(1+Math.exp(-z)); }
+
+  function fitLogistic1D(points, lr=0.03, steps=1200){
+    let w0=0, w1=1;
+    for(let s=0;s<steps;s++){
+      let g0=0, g1=0;
+      for(const p of points){
+        const z = w0 + w1*p.x;
+        const pred = sigmoid(z);
+        const err = pred - p.y;
+        g0 += err;
+        g1 += err * p.x;
+      }
+      w0 -= lr * g0/points.length;
+      w1 -= lr * g1/points.length;
+    }
+    return {w0,w1};
+  }
+
+  function softmax(arr){
+    const m=Math.max(...arr);
+    const exps=arr.map(v=>Math.exp(v-m));
+    const s=exps.reduce((a,b)=>a+b,0);
+    return exps.map(v=>v/s);
+  }
+
+  function fitSoftmax2D(points, lr=0.08, steps=800){
+    const K=3;
+    let W = [
+      [0.4,-0.1,0.1],
+      [-0.2,0.3,0.0],
+      [0.1,-0.3,0.2]
+    ];
+
+    for(let step=0; step<steps; step++){
+      const G = Array.from({length:K}, ()=>[0,0,0]);
+      for(const p of points){
+        const feat=[1,p.x,p.y];
+        const scores=W.map(w=>w[0]*feat[0]+w[1]*feat[1]+w[2]*feat[2]);
+        const probs=softmax(scores);
+        for(let k=0;k<K;k++){
+          const err=probs[k] - (p.cls===k ? 1 : 0);
+          for(let j=0;j<3;j++) G[k][j]+=err*feat[j];
+        }
+      }
+      for(let k=0;k<K;k++){
+        for(let j=0;j<3;j++){
+          W[k][j]-=lr*G[k][j]/points.length;
+        }
+      }
+    }
+    return W;
+  }
+
+  function clearCanvas(ctx, w, h){
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle = "rgba(255,255,255,.02)";
+    ctx.fillRect(0,0,w,h);
+  }
+
+  function drawGrid(ctx, w, h, xMin, xMax, yMin, yMax){
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,.08)";
+    ctx.lineWidth = 1;
+
+    for(let i=0;i<=8;i++){
+      const x = i*w/8;
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+    }
+    for(let i=0;i<=6;i++){
+      const y = i*h/6;
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+    }
+
+    const x0 = mapX(0,xMin,xMax,w);
+    const y0 = mapY(0,yMin,yMax,h);
+    ctx.strokeStyle = "rgba(255,255,255,.35)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x0,0); ctx.lineTo(x0,h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,y0); ctx.lineTo(w,y0); ctx.stroke();
+    ctx.restore();
+  }
+
+  function mapX(x, xMin, xMax, w){ return (x-xMin)/(xMax-xMin)*w; }
+  function mapY(y, yMin, yMax, h){ return h - (y-yMin)/(yMax-yMin)*h; }
+
+  function drawLineFn(ctx, fn, xMin, xMax, yMin, yMax, color, width=3, dash=[]){
+    const w=ctx.canvas.width, h=ctx.canvas.height;
+    ctx.save();
+    ctx.strokeStyle=color;
+    ctx.lineWidth=width;
+    ctx.setLineDash(dash);
+    ctx.beginPath();
+    const n=300;
+    for(let i=0;i<n;i++){
+      const x = xMin + (xMax-xMin)*i/(n-1);
+      const y = fn(x);
+      const px=mapX(x,xMin,xMax,w);
+      const py=mapY(y,yMin,yMax,h);
+      if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawLabel(ctx, text, x, y, color="#eef2ff"){
+    ctx.fillStyle=color;
+    ctx.font="bold 14px system-ui";
+    ctx.fillText(text,x,y);
+  }
+
+  function renderMainPlot(){
+    const w=plot.width, h=plot.height;
+    clearCanvas(pctx,w,h);
+
+    if(currentModel === "softmax"){
+      renderSoftmax();
+      return;
+    }
+
+    if(currentModel === "logistic"){
+      renderLogistic();
+      return;
+    }
+
+    const xMin=-3.4, xMax=3.4;
+    const yMin=-6.4, yMax=8.2;
+    drawGrid(pctx,w,h,xMin,xMax,yMin,yMax);
+
+    const xs = dataState.xs.slice();
+    const ys = currentModel === "polynomial" ? dataState.polyY.slice() : dataState.linearY.slice();
+    const points = xs.map((x,i)=>({x,y:ys[i]}));
+
+    drawLineFn(
+      pctx,
+      currentModel === "polynomial"
+        ? (x)=>0.45*x*x*x - 1.1*x + 0.5
+        : (x)=>1.2*x + 0.4,
+      xMin,xMax,yMin,yMax,
+      "#fbbf24", 2.5, [6,6]
+    );
+
+    if(currentModel === "linear"){
+      const wlin = fitPolynomial(xs, ys, 1, 0);
+      drawLineFn(pctx, x=>predictPoly(wlin,x), xMin,xMax,yMin,yMax, "#7dd3fc", 4);
+      drawScatterWithOutlier(points, dataState.outIdx);
+      drawLabel(pctx, "Ordinary Least Squares", 18, 28, "#7dd3fc");
+    }
+
+    if(currentModel === "ridge"){
+      const lam = Number(lambdaSlider.value) * 8;
+      const wr = fitPolynomial(xs, ys, 1, lam);
+      drawLineFn(pctx, x=>predictPoly(wr,x), xMin,xMax,yMin,yMax, "#7dd3fc", 4);
+      drawScatterWithOutlier(points, dataState.outIdx);
+      drawLabel(pctx, "Ridge: smoother, more cautious coefficients", 18, 28, "#7dd3fc");
+    }
+
+    if(currentModel === "lasso"){
+      const lam = Number(lambdaSlider.value);
+      const wl = fitLassoApprox(xs, ys, lam);
+      drawLineFn(pctx, x=>predictPoly(wl,x), xMin,xMax,yMin,yMax, "#7dd3fc", 4);
+      drawScatterWithOutlier(points, dataState.outIdx);
+      drawLabel(pctx, "Lasso: weak clues can go exactly to zero", 18, 28, "#7dd3fc");
+    }
+
+    if(currentModel === "robust"){
+      const wols = fitPolynomial(xs, ys, 1, 0);
+      const wrob = fitRobustLine(xs, ys);
+      drawLineFn(pctx, x=>predictPoly(wols,x), xMin,xMax,yMin,yMax, "#7dd3fc", 3, [8,6]);
+      drawLineFn(pctx, x=>predictPoly(wrob,x), xMin,xMax,yMin,yMax, "#22c55e", 4);
+      drawScatterWithOutlier(points, dataState.outIdx);
+      drawLabel(pctx, "Dashed = ordinary line, Green = robust line", 18, 28, "#22c55e");
+    }
+
+    if(currentModel === "polynomial"){
+      const deg = Number(degreeSlider.value);
+      const ridge = Number(lambdaSlider.value) * 0.8;
+      const wp = fitPolynomial(xs, ys, deg, ridge);
+      drawLineFn(pctx, x=>predictPoly(wp,x), xMin,xMax,yMin,yMax, "#7dd3fc", 4);
+      drawScatter(points);
+      drawLabel(pctx, `Polynomial degree ${deg}`, 18, 28, "#7dd3fc");
+    }
+  }
+
+  function drawScatter(points){
+    for(const p of points){
+      const x=mapX(p.x,-3.4,3.4,plot.width);
+      const y=mapY(p.y,-6.4,8.2,plot.height);
+      pctx.beginPath();
+      pctx.arc(x,y,4.4,0,Math.PI*2);
+      pctx.fillStyle="white";
+      pctx.fill();
+    }
+  }
+
+  function drawScatterWithOutlier(points, outIdx){
+    points.forEach((p,i)=>{
+      const x=mapX(p.x,-3.4,3.4,plot.width);
+      const y=mapY(p.y,-6.4,8.2,plot.height);
+      pctx.beginPath();
+      pctx.arc(x,y,4.5,0,Math.PI*2);
+      pctx.fillStyle = i===outIdx ? "#ef4444" : "white";
+      pctx.fill();
+    });
+  }
+
+  function renderLogistic(){
+    const w=plot.width, h=plot.height;
+    const xMin=-4.6, xMax=4.6, yMin=-0.15, yMax=1.15;
+    drawGrid(pctx,w,h,xMin,xMax,yMin,yMax);
+
+    const model = fitLogistic1D(dataState.logisticPts);
+
+    drawLineFn(pctx, x=>sigmoid(model.w0 + model.w1*x), xMin,xMax,yMin,yMax, "#7dd3fc", 4);
+
+    pctx.save();
+    pctx.strokeStyle="rgba(255,255,255,.9)";
+    pctx.setLineDash([6,6]);
+    pctx.lineWidth=2;
+    const py = mapY(0.5,yMin,yMax,h);
+    pctx.beginPath();
+    pctx.moveTo(0,py);
+    pctx.lineTo(w,py);
+    pctx.stroke();
+    pctx.restore();
+
+    for(const p of dataState.logisticPts){
+      const x = mapX(p.x,xMin,xMax,w);
+      const jitter = p.y ? 0.92 : 0.08;
+      const y = mapY(jitter,yMin,yMax,h);
+      pctx.beginPath();
+      pctx.arc(x,y,5,0,Math.PI*2);
+      pctx.fillStyle = p.y ? "#22c55e" : "#ef4444";
+      pctx.fill();
+    }
+
+    drawLabel(pctx, "Sigmoid converts score into probability", 18, 28, "#7dd3fc");
+  }
+
+  function renderSoftmax(){
+    const w=plot.width, h=plot.height;
+    const xMin=-4.0, xMax=4.0, yMin=-4.0, yMax=4.0;
+    drawGrid(pctx,w,h,xMin,xMax,yMin,yMax);
+
+    const W = fitSoftmax2D(dataState.softmaxPts);
+
+    const cell=8;
+    for(let px=0; px<w; px+=cell){
+      for(let py=0; py<h; py+=cell){
+        const x = xMin + (xMax-xMin)*(px/w);
+        const y = yMax - (yMax-yMin)*(py/h);
+        const scores = W.map(wk => wk[0] + wk[1]*x + wk[2]*y);
+        const probs = softmax(scores);
+        const cls = probs.indexOf(Math.max(...probs));
+        let fill = "rgba(255,255,255,.08)";
+        if(cls===0) fill="rgba(239,68,68,.22)";
+        if(cls===1) fill="rgba(34,197,94,.22)";
+        if(cls===2) fill="rgba(125,211,252,.22)";
+        pctx.fillStyle=fill;
+        pctx.fillRect(px,py,cell,cell);
+      }
+    }
+
+    drawGrid(pctx,w,h,xMin,xMax,yMin,yMax);
+
+    for(const p of dataState.softmaxPts){
+      const x=mapX(p.x,xMin,xMax,w);
+      const y=mapY(p.y,yMin,yMax,h);
+      pctx.beginPath();
+      pctx.arc(x,y,5,0,Math.PI*2);
+      pctx.fillStyle = p.cls===0 ? "#ef4444" : p.cls===1 ? "#22c55e" : "#7dd3fc";
+      pctx.fill();
+      pctx.strokeStyle="white";
+      pctx.lineWidth=1;
+      pctx.stroke();
+    }
+
+    drawLabel(pctx, "Softmax splits space into class regions", 18, 28, "#eef2ff");
+  }
+
+  function renderMiniPlot(){
+    const w=miniPlot.width, h=miniPlot.height;
+    clearCanvas(mctx,w,h);
+
+    if(currentModel === "ridge"){
+      renderPriorPlot("gaussian");
+      return;
+    }
+    if(currentModel === "lasso"){
+      renderPriorPlot("laplace");
+      return;
+    }
+    if(currentModel === "linear" || currentModel === "robust" || currentModel === "polynomial"){
+      renderCoefficientBars();
+      return;
+    }
+    if(currentModel === "logistic"){
+      renderLogisticMini();
+      return;
+    }
+    if(currentModel === "softmax"){
+      renderSoftmaxMini();
+      return;
+    }
+  }
+
+  function renderPriorPlot(kind){
+    const w=miniPlot.width, h=miniPlot.height;
+    const xMin=-3.5, xMax=3.5, yMin=0, yMax=1.2;
+
+    drawGrid(mctx,w,h,xMin,xMax,yMin,yMax);
+
+    const lam = Number(lambdaSlider.value);
+    if(kind==="gaussian"){
+      drawLineFn(
+        mctx,
+        x => Math.exp(-(0.8 + lam)*x*x),
+        xMin,xMax,yMin,yMax,
+        "#a78bfa",4
+      );
+      drawLabel(mctx, "Gaussian prior / L2 penalty", 16, 24, "#a78bfa");
+      drawLabel(mctx, "Smoothly prefers small coefficients", 16, 44, "#eef2ff");
+    } else {
+      drawLineFn(
+        mctx,
+        x => Math.exp(-(0.9 + lam)*Math.abs(x)),
+        xMin,xMax,yMin,yMax,
+        "#f472b6",4
+      );
+      drawLabel(mctx, "Laplacian prior / L1 penalty", 16, 24, "#f472b6");
+      drawLabel(mctx, "Sharp peak at zero → sparsity", 16, 44, "#eef2ff");
+    }
+  }
+
+  function renderCoefficientBars(){
+    const w=miniPlot.width, h=miniPlot.height;
+    mctx.save();
+
+    const xs = dataState.xs.slice();
+    const ys = currentModel === "polynomial" ? dataState.polyY.slice() : dataState.linearY.slice();
+
+    let coeffs;
+    if(currentModel === "linear") coeffs = fitPolynomial(xs, ys, 1, 0);
+    if(currentModel === "robust") coeffs = fitRobustLine(xs, ys);
+    if(currentModel === "polynomial") coeffs = fitPolynomial(xs, ys, Number(degreeSlider.value), Number(lambdaSlider.value)*0.8);
+
+    const maxAbs = Math.max(1.5, ...coeffs.map(c=>Math.abs(c)));
+    mctx.fillStyle="rgba(255,255,255,.04)";
+    mctx.fillRect(0,0,w,h);
+
+    const zeroY = h/2;
+    mctx.strokeStyle="rgba(255,255,255,.22)";
+    mctx.lineWidth=2;
+    mctx.beginPath();
+    mctx.moveTo(20,zeroY);
+    mctx.lineTo(w-20,zeroY);
+    mctx.stroke();
+
+    const n = coeffs.length;
+    const gap = (w-60)/n;
+    coeffs.forEach((c,i)=>{
+      const x = 30 + i*gap + gap*0.18;
+      const bw = gap*0.64;
+      const barH = (Math.abs(c)/maxAbs)*(h*0.34);
+      mctx.fillStyle = c >= 0 ? "#7dd3fc" : "#f472b6";
+      mctx.fillRect(x, c>=0 ? zeroY-barH : zeroY, bw, barH);
+      mctx.fillStyle="#eef2ff";
+      mctx.font="12px system-ui";
+      mctx.fillText(`w${i}`, x+6, h-14);
+    });
+
+    drawLabel(mctx, "Coefficient sizes", 16, 24, "#eef2ff");
+    mctx.restore();
+  }
+
+  function renderLogisticMini(){
+    const w=miniPlot.width, h=miniPlot.height;
+    clearCanvas(mctx,w,h);
+    const xMin=-5, xMax=5, yMin=0, yMax=1;
+
+    drawGrid(mctx,w,h,xMin,xMax,yMin,yMax);
+    drawLineFn(mctx, x=>sigmoid(1.6*x), xMin,xMax,yMin,yMax, "#7dd3fc",4);
+    drawLabel(mctx, "Probability rises from 0 to 1", 16, 24, "#7dd3fc");
+  }
+
+  function renderSoftmaxMini(){
+    const w=miniPlot.width, h=miniPlot.height;
+    clearCanvas(mctx,w,h);
+
+    const cx = w/2, cy = h/2+10, r = 62;
+    const colors=["#ef4444","#22c55e","#7dd3fc"];
+    const labels=["Red","Green","Blue"];
+    const probs=[0.18,0.27,0.55];
+
+    let start=-Math.PI/2;
+    for(let i=0;i<3;i++){
+      const end = start + probs[i]*Math.PI*2;
+      mctx.beginPath();
+      mctx.moveTo(cx,cy);
+      mctx.arc(cx,cy,r,start,end);
+      mctx.closePath();
+      mctx.fillStyle=colors[i];
+      mctx.fill();
+      start=end;
+    }
+
+    drawLabel(mctx, "Softmax outputs probabilities summing to 1", 16, 24, "#eef2ff");
+    labels.forEach((lab,i)=>{
+      mctx.fillStyle=colors[i];
+      mctx.fillRect(20,50+i*24,14,14);
+      mctx.fillStyle="#eef2ff";
+      mctx.font="13px system-ui";
+      mctx.fillText(`${lab}: ${(probs[i]*100).toFixed(0)}%`, 42, 62+i*24);
+    });
+  }
+
+  function renderAll(){
+    renderMainPlot();
+    renderMiniPlot();
+  }
+
+  function playTour(){
+    if(tourTimer){
+      clearInterval(tourTimer);
+      tourTimer = null;
+      animateBtn.textContent = "Play detective tour";
+      return;
+    }
+
+    let idx = MODELS.indexOf(currentModel);
+    animateBtn.textContent = "Stop detective tour";
+    tourTimer = setInterval(()=>{
+      idx = (idx+1) % MODELS.length;
+      currentModel = MODELS[idx];
+      updateUI();
+      renderAll();
+    }, 1800);
+  }
+
+  noiseSlider.addEventListener("input", ()=>{
+    updateUI();
+    regenerateData();
+    renderAll();
+  });
+
+  outlierSlider.addEventListener("input", ()=>{
+    updateUI();
+    regenerateData();
+    renderAll();
+  });
+
+  lambdaSlider.addEventListener("input", ()=>{
+    updateUI();
+    renderAll();
+  });
+
+  degreeSlider.addEventListener("input", ()=>{
+    updateUI();
+    renderAll();
+  });
+
+  regenBtn.addEventListener("click", ()=>{
+    regenerateData();
+    renderAll();
+  });
+
+  animateBtn.addEventListener("click", playTour);
+
+  createTabs();
+  regenerateData();
+  updateUI();
+  renderAll();
+  applyViewportScale();
+  window.addEventListener("resize", applyViewportScale);
+
+  if (window.MathJax && window.MathJax.typesetPromise) {
+    MathJax.typesetPromise().then(applyViewportScale).catch((err) => console.error(err));
+  }
+})();
+</script>
+</body>
+</html>
