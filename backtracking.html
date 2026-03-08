@@ -26,8 +26,10 @@
       --shadow: rgba(0,0,0,.35);
     }
 
+    *, *::before, *::after { box-sizing: border-box; }
+
     html, body{
-      height:100%;
+      min-height:100%;
     }
 
     html{
@@ -42,18 +44,23 @@
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
       background:transparent;
       color:var(--text);
-      display:flex;
-      justify-content:center;
       padding:22px;
       min-height:100%;
     }
 
     .wrap{
       width:min(980px, 100%);
+      margin:0 auto;
       display:grid;
       grid-template-columns: 1.25fr .75fr;
       gap:16px;
       align-items:start;
+      transform-origin: top center;
+      will-change: transform;
+    }
+
+    @media (max-width: 980px){
+      .wrap{ grid-template-columns: 1fr; }
     }
 
     .card{
@@ -220,10 +227,7 @@
           </g>
         </svg>
       </div>
-    </div>
 
-    <!-- RIGHT: Controls -->
-    <div class="card">
       <div class="side">
         <div class="row">
           <button id="btnPlay">▶ Play</button>
@@ -245,6 +249,16 @@
         <input id="beta" type="range" min="0.20" max="0.90" step="0.01" value="0.50" />
         <div class="small">Typical: 0.3 to 0.8</div>
 
+        <div class="status" id="statusBox">
+          <b>Status:</b> Ready. Press <b>Play</b> or <b>Step</b>.
+          <div class="small">Tip: Bigger α = harder to accept. Smaller β = faster shrinking.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Controls -->
+    <div class="card">
+      <div class="side">
         <div class="kv">
           <div class="pill"><div class="k">Current trial step</div><div class="v"><span id="tVal">1.000</span></div></div>
           <div class="pill"><div class="k">Backtrack count</div><div class="v"><span id="kVal">0</span></div></div>
@@ -631,6 +645,33 @@
   betaSlider.addEventListener("input", reset);
 
   render();
+
+  function applyViewportScale(){
+    const wrap = document.querySelector(".wrap");
+    if(!wrap) return;
+    wrap.style.transform = "scale(1)";
+    // On mobile (single-column), only constrain width so the page can scroll naturally
+    if(window.innerWidth <= 980){
+      const bodyStyle = getComputedStyle(document.body);
+      const padX = parseFloat(bodyStyle.paddingLeft || "0") + parseFloat(bodyStyle.paddingRight || "0");
+      const maxW = window.innerWidth - padX;
+      const rect = wrap.getBoundingClientRect();
+      const scale = Math.min(1, maxW / rect.width);
+      wrap.style.transform = `scale(${scale})`;
+    } else {
+      const bodyStyle = getComputedStyle(document.body);
+      const padY = parseFloat(bodyStyle.paddingTop  || "0") + parseFloat(bodyStyle.paddingBottom || "0");
+      const padX = parseFloat(bodyStyle.paddingLeft || "0") + parseFloat(bodyStyle.paddingRight  || "0");
+      const maxH = window.innerHeight - padY;
+      const maxW = window.innerWidth  - padX;
+      const rect = wrap.getBoundingClientRect();
+      const scale = Math.min(1, maxH / rect.height, maxW / rect.width);
+      wrap.style.transform = `scale(${scale})`;
+    }
+  }
+
+  applyViewportScale();
+  window.addEventListener("resize", applyViewportScale);
 })();
 </script>
 </body>
